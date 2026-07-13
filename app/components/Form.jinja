@@ -1,0 +1,10 @@
+{#def action="/screen", target="#results", swap="innerHTML" #}
+{# HTMX form primitive: posts to `action`, swaps the response into
+   `target`, and toggles any nested `.spinner` (see SubmitButton)
+   while the request is in flight. Extra attributes (class, id, ...)
+   pass through. #}
+<form hx-post="{{ action }}" hx-target="{{ target }}"
+      hx-swap="{{ swap }}" hx-indicator="this"
+      {{ attrs.render() }}>
+  {{ content }}
+</form>

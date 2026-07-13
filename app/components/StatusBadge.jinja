@@ -1,0 +1,10 @@
+{#def status #}
+{% set classes = {
+    "likely_eligible": "badge-success",
+    "possibly_eligible": "badge-warning",
+    "likely_ineligible": "badge-error",
+    "undetermined": "badge-neutral",
+} %}
+<span class="badge {{ classes.get(status, 'badge-neutral') }}">
+  {{ status.replace("_", " ") }}
+</span>

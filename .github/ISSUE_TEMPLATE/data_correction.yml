@@ -1,0 +1,54 @@
+name: 📊 Data correction
+description: A threshold, limit, or rule is stale or wrong
+title: "[data]: "
+labels: ["data", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Data corrections are the most valuable issue type this
+        project receives — thank you. An **official source is
+        required** (government publication, not a news article).
+  - type: dropdown
+    id: program
+    attributes:
+      label: Program
+      options:
+        - SNAP
+        - Medicaid (adults)
+        - Medicaid/CHIP (children)
+        - Medicaid (pregnancy)
+        - Medicare (disability)
+        - EITC
+        - Federal poverty guidelines
+        - Other / new program data
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: What OpenHand currently uses
+      description: Value or rule as shown in a result or in
+        app/engine/thresholds.py.
+    validations:
+      required: true
+  - type: textarea
+    id: correct
+    attributes:
+      label: Correct value or rule
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Official source URL
+      placeholder: https://www.fns.usda.gov/...
+    validations:
+      required: true
+  - type: input
+    id: effective
+    attributes:
+      label: Effective dates
+      placeholder: e.g. FY2027 (2026-10-01 to 2027-09-30)
+    validations:
+      required: true

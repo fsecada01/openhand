@@ -1,0 +1,38 @@
+[project]
+name = "openhand"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "anthropic>=0.116.0",
+    "fastapi>=0.139.0",
+    "jinja2>=3.1.6",
+    "jinjax>=0.65",
+    "python-decouple>=3.8",
+    "python-multipart>=0.0.32",
+    "slowapi>=0.1.10",
+    "sqlalchemy-mixins>=2.0.5",
+    "sqlmodel>=0.0.39",
+    "sqlmodel-crud-utilities>=0.2.1",
+    "uvicorn[standard]>=0.51.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28",
+    "pytest>=8.3",
+    "ruff>=0.9",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 80
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]

@@ -1,0 +1,21 @@
+<Layout>
+  <Form action="/screen" class="card bg-base-100 shadow-md">
+    <div class="card-body">
+      <label class="font-semibold" for="narrative">
+        What do you need help with?
+      </label>
+      <p class="text-sm opacity-70">
+        For example: &ldquo;I'm in Ohio, just me and my two kids, I
+        lost my job last month and we're living on about $1,400 a
+        month right now.&rdquo;
+      </p>
+      <textarea id="narrative" name="narrative" required
+                class="textarea textarea-bordered w-full min-h-32"
+                placeholder="Tell us your situation..."></textarea>
+      <div class="card-actions">
+        <SubmitButton />
+      </div>
+    </div>
+  </Form>
+  <div id="results" class="mt-6"></div>
+</Layout>

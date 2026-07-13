@@ -1,0 +1,119 @@
+{
+  "_comment": "Hand-verified eval suite. Every engine change must keep these passing. Keys under 'expected' map program id -> status; a program id under 'absent' must not appear in the results.",
+  "cases": [
+    {
+      "name": "tx_single_parent_two_kids",
+      "profile": {
+        "state": "TX", "household_size": 3,
+        "monthly_gross_income": 2000, "monthly_earned_income": 2000,
+        "num_children": 2, "filing_status": "head_of_household",
+        "adult_age": 30
+      },
+      "expected": {
+        "snap": "likely_eligible",
+        "medicaid_adult": "undetermined",
+        "medicaid_chip_children": "likely_eligible",
+        "eitc": "likely_eligible"
+      },
+      "absent": ["medicare_disability", "medicaid_pregnant"]
+    },
+    {
+      "name": "ca_single_adult_low_wage",
+      "profile": {
+        "state": "CA", "household_size": 1,
+        "monthly_gross_income": 1200, "monthly_earned_income": 1200,
+        "adult_age": 28
+      },
+      "expected": {
+        "snap": "likely_eligible",
+        "medicaid_adult": "likely_eligible",
+        "eitc": "likely_eligible"
+      },
+      "absent": ["medicare_disability"]
+    },
+    {
+      "name": "ny_family_above_limits",
+      "profile": {
+        "state": "NY", "household_size": 4,
+        "monthly_gross_income": 6000, "monthly_earned_income": 6000,
+        "num_children": 2, "filing_status": "married_joint",
+        "adult_age": 40
+      },
+      "expected": {
+        "snap": "likely_ineligible",
+        "medicaid_adult": "likely_ineligible",
+        "medicaid_chip_children": "possibly_eligible",
+        "eitc": "likely_ineligible"
+      },
+      "absent": ["medicare_disability"]
+    },
+    {
+      "name": "fl_elderly_couple_fixed_income",
+      "profile": {
+        "state": "FL", "household_size": 2,
+        "monthly_gross_income": 2500, "monthly_earned_income": 0,
+        "has_elderly_or_disabled": true, "adult_age": 67
+      },
+      "expected": {
+        "snap": "undetermined",
+        "medicaid_adult": "undetermined",
+        "medicare_disability": "likely_eligible",
+        "eitc": "likely_ineligible"
+      }
+    },
+    {
+      "name": "ak_family_snap_table_gap",
+      "profile": {
+        "state": "AK", "household_size": 3,
+        "monthly_gross_income": 2000
+      },
+      "expected": {
+        "snap": "undetermined",
+        "medicaid_adult": "likely_eligible"
+      }
+    },
+    {
+      "name": "oh_ssdi_18_months",
+      "profile": {
+        "state": "OH", "household_size": 1,
+        "monthly_gross_income": 1400, "monthly_earned_income": 0,
+        "has_elderly_or_disabled": true, "receives_ssdi": true,
+        "months_on_ssdi": 18, "adult_age": 45
+      },
+      "expected": {
+        "snap": "likely_eligible",
+        "medicaid_adult": "likely_eligible",
+        "medicare_disability": "likely_ineligible",
+        "eitc": "likely_ineligible"
+      }
+    },
+    {
+      "name": "pa_ssdi_30_months",
+      "profile": {
+        "state": "PA", "household_size": 2,
+        "monthly_gross_income": 1800, "monthly_earned_income": 0,
+        "has_elderly_or_disabled": true, "receives_ssdi": true,
+        "months_on_ssdi": 30, "adult_age": 50
+      },
+      "expected": {
+        "snap": "likely_eligible",
+        "medicaid_adult": "likely_eligible",
+        "medicare_disability": "likely_eligible",
+        "eitc": "likely_ineligible"
+      }
+    },
+    {
+      "name": "mi_pregnant_moderate_income",
+      "profile": {
+        "state": "MI", "household_size": 2,
+        "monthly_gross_income": 2600, "monthly_earned_income": 2600,
+        "is_pregnant": true, "adult_age": 26
+      },
+      "expected": {
+        "snap": "likely_ineligible",
+        "medicaid_pregnant": "likely_eligible",
+        "eitc": "likely_ineligible"
+      }
+    }
+  ]
+}

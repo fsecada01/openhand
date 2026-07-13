@@ -1,0 +1,151 @@
+"""Pydantic schemas shared by the intake LLM pass and the engine.
+
+`IntakeExtraction` doubles as the structured-output schema for
+`client.messages.parse()` — every household field is optional so the
+model can report what it could NOT find instead of guessing.
+"""
+
+from enum import StrEnum
+
+from pydantic import BaseModel, Field
+
+REQUIRED_FIELDS = ("state", "household_size", "monthly_gross_income")
+
+
+class FilingStatus(StrEnum):
+    single = "single"
+    head_of_household = "head_of_household"
+    married_joint = "married_joint"
+    other = "other"
+
+
+class HouseholdProfile(BaseModel):
+    """Validated input to the deterministic eligibility engine."""
+
+    state: str = Field(min_length=2, max_length=2)
+    household_size: int = Field(ge=1, le=20)
+    monthly_gross_income: float = Field(ge=0)
+    monthly_earned_income: float | None = Field(default=None, ge=0)
+    num_children: int = Field(default=0, ge=0)
+    filing_status: FilingStatus = FilingStatus.single
+    has_elderly_or_disabled: bool = False
+    is_pregnant: bool = False
+    adult_age: int | None = Field(default=None, ge=0, le=130)
+    annual_investment_income: float | None = Field(default=None, ge=0)
+    receives_ssdi: bool = False
+    months_on_ssdi: int | None = Field(default=None, ge=0)
+    has_als_or_esrd: bool = False
+
+    @property
+    def earned(self) -> float:
+        if self.monthly_earned_income is not None:
+            return self.monthly_earned_income
+        return self.monthly_gross_income
+
+    @property
+    def annual_income(self) -> float:
+        return self.monthly_gross_income * 12
+
+
+class IntakeExtraction(BaseModel):
+    """Structured output of the intake LLM pass.
+
+    Facts are extracted only when explicitly stated; anything unknown
+    stays None and is listed in `missing_required` with a single
+    clarifying question to ask the user.
+    """
+
+    state: str | None = Field(
+        default=None,
+        description="Two-letter US state/DC code, e.g. 'TX'.",
+    )
+    household_size: int | None = Field(
+        default=None,
+        description="People who buy and prepare food together.",
+    )
+    monthly_gross_income: float | None = Field(
+        default=None,
+        description="Total household income per month before taxes, "
+        "in dollars. Convert annual/weekly amounts to monthly.",
+    )
+    monthly_earned_income: float | None = Field(
+        default=None,
+        description="Portion of monthly income from work (wages or "
+        "self-employment), if distinguishable.",
+    )
+    num_children: int | None = Field(
+        default=None, description="Children under 19 in the household."
+    )
+    filing_status: FilingStatus | None = None
+    has_elderly_or_disabled: bool | None = Field(
+        default=None,
+        description="Anyone in the household aged 60+ or disabled.",
+    )
+    is_pregnant: bool | None = None
+    adult_age: int | None = Field(
+        default=None, description="Age of the person asking, if stated."
+    )
+    annual_investment_income: float | None = None
+    receives_ssdi: bool | None = Field(
+        default=None,
+        description="True if someone in the household receives SSDI "
+        "(Social Security Disability Insurance) payments.",
+    )
+    months_on_ssdi: int | None = Field(
+        default=None,
+        description="How many months SSDI has been received, if "
+        "stated ('two years on disability' = 24).",
+    )
+    has_als_or_esrd: bool | None = Field(
+        default=None,
+        description="True if ALS (Lou Gehrig's disease) or end-stage "
+        "renal/kidney disease (dialysis or transplant) is mentioned.",
+    )
+    missing_required: list[str] = Field(
+        default_factory=list,
+        description="Required fields (state, household_size, "
+        "monthly_gross_income) that could not be extracted.",
+    )
+    clarifying_question: str | None = Field(
+        default=None,
+        description="ONE friendly question asking for all missing "
+        "required facts at once. None if nothing is missing.",
+    )
+
+    def to_profile(self) -> HouseholdProfile:
+        """Build an engine profile; raises if required facts missing."""
+        return HouseholdProfile(
+            state=(self.state or "").upper(),
+            household_size=self.household_size or 0,
+            monthly_gross_income=self.monthly_gross_income or -1,
+            monthly_earned_income=self.monthly_earned_income,
+            num_children=self.num_children or 0,
+            filing_status=self.filing_status or FilingStatus.single,
+            has_elderly_or_disabled=bool(self.has_elderly_or_disabled),
+            is_pregnant=bool(self.is_pregnant),
+            adult_age=self.adult_age,
+            annual_investment_income=self.annual_investment_income,
+            receives_ssdi=bool(self.receives_ssdi),
+            months_on_ssdi=self.months_on_ssdi,
+            has_als_or_esrd=bool(self.has_als_or_esrd),
+        )
+
+
+class Status(StrEnum):
+    likely_eligible = "likely_eligible"
+    possibly_eligible = "possibly_eligible"
+    likely_ineligible = "likely_ineligible"
+    undetermined = "undetermined"
+
+
+class Determination(BaseModel):
+    """Auditable per-program result from the deterministic engine."""
+
+    program: str
+    program_name: str
+    status: Status
+    reasons: list[str]
+    estimated_benefit: str | None = None
+    apply_url: str
+    data_vintage: str
+    source_url: str

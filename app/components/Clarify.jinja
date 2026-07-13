@@ -1,0 +1,16 @@
+{#def question, prior_narrative #}
+<div class="card bg-base-100 shadow-md">
+  <div class="card-body">
+    <div class="alert alert-info">
+      <span><strong>One more thing:</strong> {{ question }}</span>
+    </div>
+    <Form action="/screen">
+      <input type="hidden" name="prior_narrative"
+             value="{{ prior_narrative }}">
+      <textarea name="narrative" required
+                class="textarea textarea-bordered w-full mt-3"
+                placeholder="Your answer..."></textarea>
+      <SubmitButton label="Continue" />
+    </Form>
+  </div>
+</div>

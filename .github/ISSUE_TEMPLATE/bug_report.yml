@@ -1,0 +1,56 @@
+name: 🐛 Bug report
+description: Something isn't working as expected
+title: "[bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! **Please do not include any real
+        personal information** — invent household details if you
+        need an example.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, and what went wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Enter "..." in the screening form
+        2. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Eligibility engine (wrong determination)
+        - Intake (facts extracted wrong / bad clarifying question)
+        - Explanation (summary misstates the results)
+        - Web UI
+        - API
+        - Docs / other
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - "Critical — gives a wrong eligibility answer"
+        - "Major — blocks completing a screening"
+        - "Minor — cosmetic or workaround exists"
+    validations:
+      required: true

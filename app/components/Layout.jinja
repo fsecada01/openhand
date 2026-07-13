@@ -1,0 +1,33 @@
+{#def title="OpenHand" #}
+<!doctype html>
+<html lang="en" data-theme="emerald">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }}</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5"
+        rel="stylesheet" type="text/css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4">
+  </script>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <style>
+    .spinner { display: none; }
+    .htmx-request .spinner { display: inline-block; }
+  </style>
+</head>
+<body class="bg-base-200 min-h-screen">
+  <div class="max-w-3xl mx-auto px-4 py-8">
+    <header class="mb-6">
+      <h1 class="text-3xl font-bold">OpenHand</h1>
+      <p class="text-sm opacity-70 mt-2">
+        Describe what's going on in your own words. This tool checks
+        whether public programs (SNAP, Medicaid/CHIP, Medicare, EITC)
+        might help &mdash; alongside, never instead of, your local
+        mutual aid community. Nothing you type here is stored, and
+        results are estimates only.
+      </p>
+    </header>
+    <main>{{ content }}</main>
+  </div>
+</body>
+</html>

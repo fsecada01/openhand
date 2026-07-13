@@ -1,0 +1,18 @@
+{#def explanation, determinations #}
+<h2 class="text-2xl font-bold mb-3">What we found</h2>
+<div class="card bg-base-100 shadow-md mb-6">
+  <div class="card-body whitespace-pre-wrap text-sm">
+    {{- explanation -}}
+  </div>
+</div>
+
+<h3 class="text-xl font-semibold mb-3">Program details</h3>
+{% for d in determinations %}
+<DeterminationCard :d="d" />
+{% endfor %}
+<p class="text-xs opacity-60 mt-4">
+  These are screening estimates based on published federal guidelines
+  &mdash; only the agency that runs each program can make a decision.
+  Your local mutual aid network remains a great option for needs
+  these programs don't cover.
+</p>

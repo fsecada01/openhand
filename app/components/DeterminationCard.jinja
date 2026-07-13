@@ -1,0 +1,28 @@
+{#def d #}
+<div class="card bg-base-100 shadow-md mb-4">
+  <div class="card-body">
+    <h3 class="card-title text-base">
+      {{ d.program_name }}
+      <StatusBadge :status="d.status.value" />
+    </h3>
+    <ul class="list-disc ml-5 text-sm">
+      {% for reason in d.reasons %}<li>{{ reason }}</li>{% endfor %}
+    </ul>
+    {% if d.estimated_benefit %}
+    <p class="text-sm font-medium">
+      Estimated benefit: {{ d.estimated_benefit }}
+    </p>
+    {% endif %}
+    <div class="card-actions items-center justify-between">
+      <a class="btn btn-sm btn-outline btn-primary"
+         href="{{ d.apply_url }}" target="_blank" rel="noopener">
+        How to apply &rarr;
+      </a>
+      <span class="text-xs opacity-60">
+        Data: {{ d.data_vintage }} &middot;
+        <a class="link" href="{{ d.source_url }}" target="_blank"
+           rel="noopener">source</a>
+      </span>
+    </div>
+  </div>
+</div>
