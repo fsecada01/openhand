@@ -47,12 +47,18 @@ class HouseholdProfile(BaseModel):
         return self.monthly_gross_income * 12
 
 
-class IntakeExtraction(BaseModel):
-    """Structured output of the intake LLM pass.
+class IntakeFacts(BaseModel):
+    """Structured-output schema for the intake LLM call itself.
+
+    Kept lean (facts only, no `missing_required`/`clarifying_question`)
+    because Claude's structured-outputs feature rejects schemas past a
+    complexity threshold — this model sits right under that limit.
+    Deciding what's missing and how to ask for it is control flow, not
+    an extracted fact, so it lives in Python (see `IntakeExtraction`
+    and `app.llm.intake.extract`) rather than in this schema.
 
     Facts are extracted only when explicitly stated; anything unknown
-    stays None and is listed in `missing_required` with a single
-    clarifying question to ask the user.
+    stays None.
     """
 
     state: str | None = Field(
@@ -101,6 +107,16 @@ class IntakeExtraction(BaseModel):
         description="True if ALS (Lou Gehrig's disease) or end-stage "
         "renal/kidney disease (dialysis or transplant) is mentioned.",
     )
+
+
+class IntakeExtraction(IntakeFacts):
+    """`IntakeFacts` plus the missing-fact bookkeeping the app needs.
+
+    `app.llm.intake.extract` builds this from the LLM's `IntakeFacts`
+    output and Python-computed `missing_required`/`clarifying_question`
+    — never from a second model field the LLM fills in itself.
+    """
+
     missing_required: list[str] = Field(
         default_factory=list,
         description="Required fields (state, household_size, "

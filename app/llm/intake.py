@@ -8,7 +8,7 @@ clarifying question, which the UI relays to the user.
 
 from app import config
 from app.llm.client import get_client
-from app.schemas import REQUIRED_FIELDS, IntakeExtraction
+from app.schemas import REQUIRED_FIELDS, IntakeExtraction, IntakeFacts
 
 SYSTEM = """\
 You extract household facts from a person's own description of their
@@ -24,10 +24,6 @@ Rules:
   including the person writing. "Me and my two kids" = 3.
 - If the person names a city, you may set the state only when it is
   unambiguous (e.g. "Brooklyn" -> NY). Otherwise leave state null.
-- List each required field you could not extract in missing_required
-  (choices: state, household_size, monthly_gross_income), and write
-  ONE short, warm clarifying question that asks for all of them at
-  once. If nothing is missing, leave both empty.
 - Never include names, phone numbers, or other identifying details in
   any output field.
 """
@@ -41,20 +37,24 @@ def extract(narrative: str) -> IntakeExtraction:
         thinking={"type": "adaptive"},
         system=SYSTEM,
         messages=[{"role": "user", "content": narrative}],
-        output_format=IntakeExtraction,
+        output_format=IntakeFacts,
     )
-    extraction: IntakeExtraction = response.parsed_output
-    # Belt-and-braces: recompute missing_required server-side so a
-    # model slip can't push an incomplete profile into the engine.
-    missing = [f for f in REQUIRED_FIELDS if getattr(extraction, f) is None]
-    extraction.missing_required = missing
-    if missing and not extraction.clarifying_question:
-        extraction.clarifying_question = (
+    facts: IntakeFacts = response.parsed_output
+    # What's missing, and the question to ask, are decided in Python
+    # (not by the model) — see IntakeFacts' docstring for why.
+    missing = [f for f in REQUIRED_FIELDS if getattr(facts, f) is None]
+    question = None
+    if missing:
+        question = (
             "Could you tell me a bit more — "
             + ", ".join(_ASK[f] for f in missing)
             + "?"
         )
-    return extraction
+    return IntakeExtraction(
+        **facts.model_dump(),
+        missing_required=missing,
+        clarifying_question=question,
+    )
 
 
 _ASK = {

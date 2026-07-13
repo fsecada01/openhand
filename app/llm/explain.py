@@ -29,8 +29,11 @@ Hard rules:
 - Close by noting that local mutual aid networks remain a great
   resource alongside these programs — this tool adds options, it
   doesn't replace community help.
-- No names, no personal details beyond what's in the profile. Plain
-  text only, short paragraphs, no markdown tables.
+- No names, no personal details beyond what's in the profile.
+- Output is rendered as plain pre-wrapped text, NOT markdown — never
+  use **bold**, #headings, bullet dashes, or any markdown syntax.
+  Use a program name on its own line followed by a blank line to set
+  it apart, nothing else.
 """
 
 
@@ -43,9 +46,8 @@ def explain(
     }
     client = get_client()
     with client.messages.stream(
-        model=config.ANTHROPIC_MODEL,
+        model=config.ANTHROPIC_EXPLAIN_MODEL,
         max_tokens=8000,
-        thinking={"type": "adaptive"},
         system=SYSTEM,
         messages=[
             {
