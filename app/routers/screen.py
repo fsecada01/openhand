@@ -16,7 +16,9 @@ from app.db import get_session
 from app.engine import ENGINE_VERSION, evaluate
 from app.llm import explain as explain_mod
 from app.llm import intake
+from app.llm import supplemental as supplemental_mod
 from app.llm.client import LLMNotConfiguredError
+from app.llm.intake import ASK_PROMPTS
 from app.models import Screening
 from app.schemas import Explanation
 from app.services import disability_lookup, resource_search
@@ -25,6 +27,13 @@ from app.ui import catalog
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
 logger = logging.getLogger(__name__)
+
+# Caps the intake back-and-forth so a person who can't (or won't)
+# supply the required facts isn't stuck in an endless clarifying-
+# question loop — after this many rounds (or an earlier "end here"
+# click, see Clarify.jinja) we stop asking and finalize with whatever
+# was gathered.
+MAX_CLARIFY_ROUNDS = 10
 
 EXPLANATION_FALLBACK = Explanation(
     intro="We couldn't generate the plain-language summary just now, "
@@ -47,15 +56,25 @@ async def index():
 @limiter.limit(config.RATE_LIMIT_SCREEN)
 async def screen(
     request: Request,
-    narrative: Annotated[str, Form()],
     session: Annotated[Session, Depends(get_session)],
+    # FastAPI's Form() treats a submitted empty string as a missing
+    # required field, not an empty value — the "end here" button
+    # (formnovalidate, so it can submit a blank textarea) needs a
+    # default so that submission doesn't 422.
+    narrative: Annotated[str, Form()] = "",
     prior_narrative: Annotated[str, Form()] = "",
+    round_num: Annotated[int, Form()] = 1,
+    finalize: Annotated[str, Form()] = "",
 ):
-    combined = narrative.strip()
-    if prior_narrative.strip():
+    addition = narrative.strip()
+    combined = prior_narrative.strip()
+    if addition:
         combined = (
-            f"{prior_narrative.strip()}\n\nAdditional info: {narrative.strip()}"
+            f"{combined}\n\nAdditional info: {addition}"
+            if combined
+            else addition
         )
+    should_finalize = bool(finalize) or round_num >= MAX_CLARIFY_ROUNDS
 
     try:
         extraction = intake.extract(combined)
@@ -84,16 +103,37 @@ async def screen(
             "happening, let us know on GitHub."
         )
 
-    if extraction.missing_required:
+    if extraction.missing_required and not should_finalize:
         return HTMLResponse(
             catalog.render(
                 "Clarify",
                 question=extraction.clarifying_question,
                 prior_narrative=combined,
+                round_num=round_num + 1,
             )
         )
 
-    profile = extraction.to_profile()
+    if extraction.missing_required:
+        # Round limit hit, or the user clicked "end here", and we
+        # still don't have enough to run the deterministic engine
+        # safely — finalize with what we know instead of guessing.
+        return HTMLResponse(
+            catalog.render(
+                "IncompleteResults",
+                missing=[ASK_PROMPTS[f] for f in extraction.missing_required],
+            )
+        )
+
+    # Optional second pass (housing/utility cost, assets, disability,
+    # veteran status, self-employment breakdown, ...) — never required,
+    # so any failure here must never cost the user their results.
+    try:
+        supplemental = supplemental_mod.extract_supplemental(combined)
+    except Exception:
+        logger.exception("supplemental extraction failed")
+        supplemental = None
+
+    profile = extraction.to_profile(supplemental)
     profile.disability_diagnosis_match = disability_lookup.lookup(
         session, combined
     )

@@ -4,9 +4,12 @@ federal screen matched poorly.
 Explicitly out of scope for the "engine decides" rule — this never
 touches eligibility status. It only surfaces state-based or other
 online resources, presented as-is, when a determination is
-`likely_ineligible` or `undetermined`. Skipped entirely (returns [])
-if no TAVILY_API_KEY is configured, or if the search itself fails —
-this is supplementary, never allowed to cost the user their results.
+`likely_ineligible` or `undetermined`, plus a standing veteran-benefits
+query when the household reports veteran status (no VA program is
+screened by the engine, so that signal has nowhere else to surface).
+Skipped entirely (returns []) if no TAVILY_API_KEY is configured, or
+if the search itself fails — this is supplementary, never allowed to
+cost the user their results.
 """
 
 import logging
@@ -49,13 +52,29 @@ def search_for_gaps(
         d for d in determinations if d.status in POOR_MATCH_STATUSES
     ][:MAX_PROGRAMS]
 
-    searches: list[ResourceSearchResult] = []
-    for d in poor_matches:
-        query = (
+    queries = [
+        (
+            d.program_name,
             f"{d.program_name} alternatives or state assistance "
             f"programs in {profile.state} for someone who may not "
-            "qualify for the federal program"
+            "qualify for the federal program",
         )
+        for d in poor_matches
+    ]
+    # No VA program is screened by the engine, so veteran status can
+    # never surface here via a poor-match Determination — add it as a
+    # standing extra query instead, independent of eligibility status.
+    if profile.is_veteran:
+        queries.append(
+            (
+                "Veterans benefits",
+                f"VA disability, pension, and other veterans benefits "
+                f"in {profile.state}",
+            )
+        )
+
+    searches: list[ResourceSearchResult] = []
+    for program_name, query in queries:
         try:
             response = client.search(
                 query=query,
@@ -63,7 +82,7 @@ def search_for_gaps(
                 search_depth="basic",
             )
         except Exception:
-            logger.exception("tavily search failed for %s", d.program)
+            logger.exception("tavily search failed for %s", program_name)
             continue
         results = [
             ResourceLink(
@@ -76,7 +95,7 @@ def search_for_gaps(
         if results:
             searches.append(
                 ResourceSearchResult(
-                    program_name=d.program_name, query=query, results=results
+                    program_name=program_name, query=query, results=results
                 )
             )
     return searches

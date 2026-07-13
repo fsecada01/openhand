@@ -31,23 +31,33 @@ def _det(program, name, status, reasons):
 def screen_adult(profile: HouseholdProfile) -> Determination:
     fpl = t.fpl_monthly(profile.household_size, profile.state)
     limit = fpl * t.MEDICAID_ADULT_EXPANSION_PCT
-    income = profile.monthly_gross_income
+    income = profile.magi_income_monthly
     pct = income / fpl * 100
 
     if profile.state in t.MEDICAID_NON_EXPANSION:
+        reasons = [
+            f"{profile.state} has not expanded Medicaid to "
+            "low-income adults, so adult eligibility depends on "
+            "narrower state categories (pregnancy, disability, "
+            "caring for young children).",
+            "If your income is between 100% and 400% of poverty, "
+            "you may instead qualify for reduced-cost Marketplace "
+            "coverage at healthcare.gov.",
+        ]
+        if profile.has_disability:
+            reasons.insert(
+                0,
+                "Since you mentioned a disability, your state's "
+                "disability-based Medicaid category (sometimes called "
+                "'ABD' — Aged, Blind, and Disabled) is a separate "
+                "path worth applying for, independent of the "
+                "adult-expansion pathway above.",
+            )
         return _det(
             "medicaid_adult",
             "Medicaid (adults)",
             Status.undetermined,
-            [
-                f"{profile.state} has not expanded Medicaid to "
-                "low-income adults, so adult eligibility depends on "
-                "narrower state categories (pregnancy, disability, "
-                "caring for young children).",
-                "If your income is between 100% and 400% of poverty, "
-                "you may instead qualify for reduced-cost Marketplace "
-                "coverage at healthcare.gov.",
-            ],
+            reasons,
         )
 
     if income <= limit:
@@ -81,7 +91,7 @@ def screen_children(profile: HouseholdProfile) -> Determination | None:
     if profile.num_children < 1:
         return None
     fpl = t.fpl_monthly(profile.household_size, profile.state)
-    income = profile.monthly_gross_income
+    income = profile.magi_income_monthly
     pct = income / fpl * 100
 
     if income <= fpl * t.CHILD_FLOOR_PCT:
@@ -119,7 +129,7 @@ def screen_pregnant(profile: HouseholdProfile) -> Determination | None:
     if not profile.is_pregnant:
         return None
     fpl = t.fpl_monthly(profile.household_size, profile.state)
-    income = profile.monthly_gross_income
+    income = profile.magi_income_monthly
     pct = income / fpl * 100
 
     if income <= fpl * t.PREGNANT_FLOOR_PCT:

@@ -23,7 +23,10 @@ def _det(status, reasons, benefit=None):
 
 
 def screen(profile: HouseholdProfile) -> Determination:
-    annual_earned = profile.earned * 12
+    # S-Corp: only W-2 wages count as earned income (K-1 distributions
+    # are explicitly excluded by the IRS). Sole proprietor/1099: net
+    # profit, not gross receipts. Everyone else: unchanged.
+    annual_earned = profile.eitc_earned_income_monthly * 12
     if annual_earned <= 0:
         return _det(
             Status.likely_ineligible,
@@ -47,7 +50,10 @@ def screen(profile: HouseholdProfile) -> Determination:
     single_limit, mfj_limit, max_credit = t.EITC_TABLE[kids]
     is_mfj = profile.filing_status == FilingStatus.married_joint
     limit = mfj_limit if is_mfj else single_limit
-    annual = profile.annual_income
+    # Self-employed/S-Corp households: use the same MAGI-style figure
+    # as Medicaid (falls back to unchanged monthly_gross_income when
+    # not self-employed) rather than raw gross receipts.
+    annual = profile.magi_income_monthly * 12
 
     if kids == 0:
         lo, hi = t.EITC_CHILDLESS_AGE_RANGE
@@ -79,6 +85,14 @@ def screen(profile: HouseholdProfile) -> Determination:
         f"${annual:,.0f} is within the ${limit:,} limit for "
         f"{'3 or more' if kids == 3 else kids} qualifying children.",
     ]
+    if kids > 0:
+        reasons.append(
+            "Note: the IRS 'qualifying child' test also checks "
+            "relationship, residency (lived with you more than half "
+            "the year), and that the child doesn't file a joint "
+            "return — worth double-checking each child against those "
+            "rules before filing."
+        )
     if kids == 0 and profile.adult_age is None:
         reasons.append(
             "Note: with no qualifying children you must be 25-64 "

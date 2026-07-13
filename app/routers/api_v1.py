@@ -16,6 +16,7 @@ from app.db import get_session
 from app.engine import ENGINE_VERSION, evaluate
 from app.llm import explain as explain_mod
 from app.llm import intake
+from app.llm import supplemental as supplemental_mod
 from app.llm.client import LLMNotConfiguredError
 from app.models import Screening
 from app.schemas import (
@@ -83,7 +84,13 @@ async def screen(
             missing_required=extraction.missing_required,
         )
 
-    profile = extraction.to_profile()
+    try:
+        supplemental = supplemental_mod.extract_supplemental(body.narrative)
+    except Exception:
+        logger.exception("supplemental extraction failed")
+        supplemental = None
+
+    profile = extraction.to_profile(supplemental)
     profile.disability_diagnosis_match = disability_lookup.lookup(
         session, body.narrative
     )

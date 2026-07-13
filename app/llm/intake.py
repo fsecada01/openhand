@@ -49,7 +49,7 @@ def extract(narrative: str) -> IntakeExtraction:
     if missing:
         question = (
             "Could you tell me a bit more — "
-            + ", ".join(_ASK[f] for f in missing)
+            + ", ".join(ASK_PROMPTS[f] for f in missing)
             + "?"
         )
     return IntakeExtraction(
@@ -59,7 +59,7 @@ def extract(narrative: str) -> IntakeExtraction:
     )
 
 
-_ASK = {
+ASK_PROMPTS = {
     "state": "which state you live in",
     "household_size": "how many people live and eat together at home",
     "monthly_gross_income": "about how much money your household "

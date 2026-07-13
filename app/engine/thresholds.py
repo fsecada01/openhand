@@ -82,6 +82,30 @@ SNAP_STANDARD_DEDUCTION = {1: 209, 2: 209, 3: 209, 4: 223, 5: 261}
 SNAP_STANDARD_DEDUCTION_6_PLUS = 299
 SNAP_EARNED_INCOME_DEDUCTION_PCT = 0.20
 
+# Excess shelter deduction cap, 48 states + DC, FY2026. Uncapped for
+# households with an elderly or disabled member.
+SNAP_SHELTER_DEDUCTION_CAP = 744
+
+# Elderly/disabled households can deduct unreimbursed medical expenses
+# over this monthly floor. Unchanged for years; verify before a future
+# COLA update.
+SNAP_MEDICAL_EXPENSE_FLOOR = 35
+
+# Federal asset limits, FY2026 (unchanged from FY2025): $3,000 general,
+# $4,500 if the household has an elderly (60+) or disabled member.
+SNAP_ASSET_LIMIT_GENERAL = 3_000
+SNAP_ASSET_LIMIT_ELDERLY_DISABLED = 4_500
+
+# States that have NOT adopted Broad-Based Categorical Eligibility and
+# so still apply the federal asset test above. A handful of other
+# states (AR, ID, IN, NE, TX) use BBCE but with their own higher/custom
+# asset limits — deliberately excluded here since those limits aren't
+# sourced, so the app treats them like any other BBCE state (no asset
+# gate) rather than guessing a wrong number. Source: USDA FNS BBCE
+# overview + Propel (https://www.propel.app/snap/asset-limits-states/),
+# verified 2026-07-13.
+SNAP_ASSET_TEST_STATES = {"KS", "MS", "MO", "SD", "TN", "UT", "WY"}
+
 
 def snap_limit(table: dict, each_additional: int, size: int) -> int:
     if size <= 8:

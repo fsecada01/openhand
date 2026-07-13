@@ -114,6 +114,56 @@
         "medicaid_pregnant": "likely_eligible",
         "eitc": "likely_ineligible"
       }
+    },
+    {
+      "name": "oh_elderly_high_shelter_cost_flips_snap_eligible",
+      "profile": {
+        "state": "OH", "household_size": 1,
+        "monthly_gross_income": 1600, "monthly_earned_income": 0,
+        "has_elderly_or_disabled": true, "adult_age": 65,
+        "monthly_housing_cost": 800, "monthly_utility_cost": 100
+      },
+      "expected": {
+        "snap": "likely_eligible",
+        "medicare_disability": "likely_eligible"
+      }
+    },
+    {
+      "name": "ks_asset_test_fails_despite_low_income",
+      "profile": {
+        "state": "KS", "household_size": 1,
+        "monthly_gross_income": 800, "monthly_earned_income": 800,
+        "liquid_assets": 5000, "adult_age": 30
+      },
+      "expected": {
+        "snap": "likely_ineligible"
+      }
+    },
+    {
+      "name": "oh_self_employed_sole_prop_net_income",
+      "profile": {
+        "state": "OH", "household_size": 1,
+        "monthly_gross_income": 5000, "is_self_employed": true,
+        "monthly_gross_receipts": 5000, "monthly_business_expenses": 4500,
+        "adult_age": 30
+      },
+      "expected": {
+        "snap": "likely_eligible",
+        "medicaid_adult": "likely_eligible"
+      }
+    },
+    {
+      "name": "oh_self_employed_s_corp_wages_vs_distributions",
+      "profile": {
+        "state": "OH", "household_size": 1,
+        "monthly_gross_income": 5500, "business_structure": "s_corp",
+        "monthly_w2_wages_from_business": 500,
+        "monthly_k1_distributions": 5000, "adult_age": 30
+      },
+      "expected": {
+        "medicaid_adult": "likely_ineligible",
+        "eitc": "likely_ineligible"
+      }
     }
   ]
 }

@@ -25,6 +25,13 @@ class DisabilityCategory(StrEnum):
     other = "other"
 
 
+class BusinessStructure(StrEnum):
+    sole_proprietor = "sole_proprietor"
+    s_corp = "s_corp"
+    partnership = "partnership"
+    other = "other"
+
+
 class HouseholdProfile(BaseModel):
     """Validated input to the deterministic eligibility engine."""
 
@@ -48,6 +55,25 @@ class HouseholdProfile(BaseModel):
     # only context for the Medicare-pathway wording.
     disability_diagnosis_match: str | None = Field(default=None, max_length=200)
 
+    # --- Supplemental facts (app.llm.supplemental.SupplementalFacts) ---
+    # All optional, extracted in a second LLM pass so IntakeFacts stays
+    # under Claude's structured-output schema complexity limit. Never
+    # gate the clarifying-question loop — they only sharpen results
+    # when volunteered.
+    monthly_housing_cost: float | None = Field(default=None, ge=0)
+    monthly_utility_cost: float | None = Field(default=None, ge=0)
+    liquid_assets: float | None = Field(default=None, ge=0)
+    has_disability: bool = False
+    is_veteran: bool = False
+    monthly_dependent_care_cost: float | None = Field(default=None, ge=0)
+    monthly_medical_expenses: float | None = Field(default=None, ge=0)
+    is_self_employed: bool = False
+    business_structure: BusinessStructure | None = None
+    monthly_gross_receipts: float | None = Field(default=None, ge=0)
+    monthly_business_expenses: float | None = Field(default=None, ge=0)
+    monthly_w2_wages_from_business: float | None = Field(default=None, ge=0)
+    monthly_k1_distributions: float | None = Field(default=None, ge=0)
+
     @property
     def earned(self) -> float:
         if self.monthly_earned_income is not None:
@@ -57,6 +83,54 @@ class HouseholdProfile(BaseModel):
     @property
     def annual_income(self) -> float:
         return self.monthly_gross_income * 12
+
+    @property
+    def self_employment_net_monthly(self) -> float | None:
+        """Net profit (gross receipts minus business expenses).
+
+        None when no gross receipts were reported — callers fall back
+        to the household's plain income fields in that case.
+        """
+        if self.monthly_gross_receipts is None:
+            return None
+        return max(
+            self.monthly_gross_receipts - (self.monthly_business_expenses or 0),
+            0,
+        )
+
+    @property
+    def magi_income_monthly(self) -> float:
+        """Medicaid MAGI income, self-employment/S-Corp aware.
+
+        S-Corp: shareholder W-2 wages AND K-1 distributions both count
+        toward MAGI. Sole proprietor/1099: net profit, not gross
+        receipts. Anyone else: unchanged monthly_gross_income.
+        """
+        if self.business_structure == BusinessStructure.s_corp and (
+            self.monthly_w2_wages_from_business is not None
+            or self.monthly_k1_distributions is not None
+        ):
+            return (self.monthly_w2_wages_from_business or 0) + (
+                self.monthly_k1_distributions or 0
+            )
+        if self.self_employment_net_monthly is not None:
+            return self.self_employment_net_monthly
+        return self.monthly_gross_income
+
+    @property
+    def eitc_earned_income_monthly(self) -> float:
+        """EITC "earned income", self-employment/S-Corp aware.
+
+        S-Corp: ONLY W-2 wages count — K-1 distributions are
+        explicitly excluded from EITC earned income by the IRS.
+        Sole proprietor/1099: net profit, not gross receipts. Anyone
+        else: unchanged `.earned`.
+        """
+        if self.business_structure == BusinessStructure.s_corp:
+            return self.monthly_w2_wages_from_business or 0
+        if self.self_employment_net_monthly is not None:
+            return self.self_employment_net_monthly
+        return self.earned
 
 
 class IntakeFacts(BaseModel):
@@ -121,6 +195,83 @@ class IntakeFacts(BaseModel):
     )
 
 
+class SupplementalFacts(BaseModel):
+    """Structured-output schema for the second, optional intake pass.
+
+    Kept flat and same-sized as `IntakeFacts` (the model already
+    proven to fit under Claude's structured-output schema complexity
+    limit) rather than added onto `IntakeFacts` itself. None of these
+    facts are ever required — they only sharpen results when
+    volunteered, so there is no `missing_required`/clarifying-question
+    bookkeeping here the way there is on `IntakeExtraction`.
+    """
+
+    monthly_housing_cost: float | None = Field(
+        default=None,
+        description="Monthly rent or mortgage payment, in dollars.",
+    )
+    monthly_utility_cost: float | None = Field(
+        default=None,
+        description="Monthly utility bills (electric, gas, water), "
+        "separate from rent/mortgage.",
+    )
+    liquid_assets: float | None = Field(
+        default=None,
+        description="Cash on hand plus bank account balances, "
+        "combined into one number.",
+    )
+    has_disability: bool | None = Field(
+        default=None,
+        description="True if the person or someone in the household "
+        "has a disability — distinct from being elderly.",
+    )
+    is_veteran: bool | None = Field(
+        default=None,
+        description="True if the person or someone in the household "
+        "is a military veteran.",
+    )
+    monthly_dependent_care_cost: float | None = Field(
+        default=None,
+        description="Monthly cost of child care or care for a "
+        "dependent that enables work or job searching.",
+    )
+    monthly_medical_expenses: float | None = Field(
+        default=None,
+        description="Monthly out-of-pocket medical expenses for an "
+        "elderly or disabled household member.",
+    )
+    is_self_employed: bool | None = Field(
+        default=None,
+        description="True if the person's income comes from their "
+        "own business rather than an employer.",
+    )
+    business_structure: BusinessStructure | None = Field(
+        default=None,
+        description="How the person's business is structured, if "
+        "self-employed and stated.",
+    )
+    monthly_gross_receipts: float | None = Field(
+        default=None,
+        description="Total business revenue per month before "
+        "expenses, for a sole proprietor/1099 contractor.",
+    )
+    monthly_business_expenses: float | None = Field(
+        default=None,
+        description="Monthly business expenses/costs of doing "
+        "business, to subtract from gross receipts.",
+    )
+    monthly_w2_wages_from_business: float | None = Field(
+        default=None,
+        description="Monthly W-2 salary the person pays themselves "
+        "from their own S-Corp, separate from distributions.",
+    )
+    monthly_k1_distributions: float | None = Field(
+        default=None,
+        description="Monthly K-1 profit distributions from an "
+        "S-Corp, separate from W-2 wages.",
+    )
+
+
 class IntakeExtraction(IntakeFacts):
     """`IntakeFacts` plus the missing-fact bookkeeping the app needs.
 
@@ -140,8 +291,13 @@ class IntakeExtraction(IntakeFacts):
         "required facts at once. None if nothing is missing.",
     )
 
-    def to_profile(self) -> HouseholdProfile:
+    def to_profile(
+        self, supplemental: SupplementalFacts | None = None
+    ) -> HouseholdProfile:
         """Build an engine profile; raises if required facts missing."""
+        extra = (
+            supplemental.model_dump(exclude_none=True) if supplemental else {}
+        )
         return HouseholdProfile(
             state=(self.state or "").upper(),
             household_size=self.household_size or 0,
@@ -160,6 +316,7 @@ class IntakeExtraction(IntakeFacts):
             receives_ssdi=bool(self.receives_ssdi),
             months_on_ssdi=self.months_on_ssdi,
             has_als_or_esrd=bool(self.has_als_or_esrd),
+            **extra,
         )
 
 
