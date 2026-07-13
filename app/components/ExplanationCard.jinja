@@ -1,0 +1,17 @@
+{#def explanation #}
+<div class="card bg-base-100 shadow-md mb-6">
+  <div class="card-body">
+    {% if explanation.intro %}
+    <p class="text-sm mb-2">{{ explanation.intro }}</p>
+    {% endif %}
+    {% for section in explanation.sections %}
+    <h4 class="font-semibold text-base mt-4 mb-1">{{ section.heading }}</h4>
+    <ul class="list-disc ml-5 text-sm space-y-0.5">
+      {% for point in section.points %}<li>{{ point }}</li>{% endfor %}
+    </ul>
+    {% endfor %}
+    {% if explanation.closing %}
+    <p class="text-sm mt-4 opacity-80">{{ explanation.closing }}</p>
+    {% endif %}
+  </div>
+</div>

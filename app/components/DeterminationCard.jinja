@@ -1,19 +1,41 @@
 {#def d #}
-<div class="card bg-base-100 shadow-md mb-4">
+{% set icons = {
+    "snap": "🛒",
+    "medicaid_adult": "🩺",
+    "medicaid_chip_children": "🧒",
+    "medicaid_pregnant": "🤰",
+    "medicare_disability": "♿",
+    "eitc": "💰",
+} %}
+{% set borders = {
+    "likely_eligible": "border-l-success",
+    "possibly_eligible": "border-l-warning",
+    "likely_ineligible": "border-l-error",
+    "undetermined": "border-l-neutral",
+} %}
+<div class="card bg-base-100 shadow-md border-l-4
+            {{ borders.get(d.status.value, 'border-l-neutral') }}">
   <div class="card-body">
-    <h3 class="card-title text-base">
-      {{ d.program_name }}
-      <StatusBadge :status="d.status.value" />
-    </h3>
-    <ul class="list-disc ml-5 text-sm">
-      {% for reason in d.reasons %}<li>{{ reason }}</li>{% endfor %}
-    </ul>
-    {% if d.estimated_benefit %}
-    <p class="text-sm font-medium">
-      Estimated benefit: {{ d.estimated_benefit }}
-    </p>
-    {% endif %}
-    <div class="card-actions items-center justify-between">
+    <div class="grid grid-cols-[auto_1fr] gap-3 items-start">
+      <div class="text-3xl leading-none" aria-hidden="true">
+        {{ icons.get(d.program, "📋") }}
+      </div>
+      <div>
+        <h3 class="card-title text-base">
+          {{ d.program_name }}
+          <StatusBadge :status="d.status.value" />
+        </h3>
+        <ul class="list-disc ml-5 text-sm">
+          {% for reason in d.reasons %}<li>{{ reason }}</li>{% endfor %}
+        </ul>
+        {% if d.estimated_benefit %}
+        <p class="text-sm font-medium">
+          Estimated benefit: {{ d.estimated_benefit }}
+        </p>
+        {% endif %}
+      </div>
+    </div>
+    <div class="card-actions items-center justify-between mt-2">
       <a class="btn btn-sm btn-outline btn-primary"
          href="{{ d.apply_url }}" target="_blank" rel="noopener">
         How to apply &rarr;

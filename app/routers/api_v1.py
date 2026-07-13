@@ -18,7 +18,13 @@ from app.llm import explain as explain_mod
 from app.llm import intake
 from app.llm.client import LLMNotConfiguredError
 from app.models import Screening
-from app.schemas import Determination, HouseholdProfile
+from app.schemas import (
+    Determination,
+    Explanation,
+    HouseholdProfile,
+    ResourceSearch,
+)
+from app.services import disability_lookup, resource_search
 
 router = APIRouter(prefix="/api/v1")
 limiter = Limiter(key_func=get_remote_address)
@@ -28,6 +34,7 @@ logger = logging.getLogger(__name__)
 class ScreenRequest(BaseModel):
     narrative: str = Field(min_length=1, max_length=5000)
     explain: bool = False
+    search_resources: bool = False
 
 
 class ScreenResponse(BaseModel):
@@ -36,7 +43,8 @@ class ScreenResponse(BaseModel):
     missing_required: list[str] = []
     profile: HouseholdProfile | None = None
     determinations: list[Determination] = []
-    explanation: str | None = None
+    explanation: Explanation | None = None
+    resource_searches: list[ResourceSearch] = []
     engine_version: str = ENGINE_VERSION
 
 
@@ -76,6 +84,9 @@ async def screen(
         )
 
     profile = extraction.to_profile()
+    profile.disability_diagnosis_match = disability_lookup.lookup(
+        session, body.narrative
+    )
     determinations = evaluate(profile)
     write_row(
         Screening(
@@ -94,11 +105,22 @@ async def screen(
             explanation = explain_mod.explain(profile, determinations)
         except Exception:
             logger.exception("explanation failed")
+
+    resource_searches: list[ResourceSearch] = []
+    if body.search_resources:
+        try:
+            resource_searches = resource_search.search_for_gaps(
+                profile, determinations
+            )
+        except Exception:
+            logger.exception("resource search failed")
+
     return ScreenResponse(
         complete=True,
         profile=profile,
         determinations=determinations,
         explanation=explanation,
+        resource_searches=resource_searches,
     )
 
 

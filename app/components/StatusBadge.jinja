@@ -5,6 +5,6 @@
     "likely_ineligible": "badge-error",
     "undetermined": "badge-neutral",
 } %}
-<span class="badge {{ classes.get(status, 'badge-neutral') }}">
+<span class="badge whitespace-nowrap {{ classes.get(status, 'badge-neutral') }}">
   {{ status.replace("_", " ") }}
 </span>

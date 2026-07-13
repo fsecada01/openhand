@@ -18,15 +18,19 @@ from app.llm import explain as explain_mod
 from app.llm import intake
 from app.llm.client import LLMNotConfiguredError
 from app.models import Screening
+from app.schemas import Explanation
+from app.services import disability_lookup, resource_search
 from app.ui import catalog
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
 logger = logging.getLogger(__name__)
 
-EXPLANATION_FALLBACK = (
-    "We couldn't generate the plain-language summary just now, but "
-    "the program-by-program details below are complete."
+EXPLANATION_FALLBACK = Explanation(
+    intro="We couldn't generate the plain-language summary just now, "
+    "but the program-by-program details below are complete.",
+    sections=[],
+    closing="",
 )
 
 
@@ -90,6 +94,9 @@ async def screen(
         )
 
     profile = extraction.to_profile()
+    profile.disability_diagnosis_match = disability_lookup.lookup(
+        session, combined
+    )
     determinations = evaluate(profile)
 
     write_row(
@@ -109,10 +116,20 @@ async def screen(
     except Exception:
         logger.exception("explanation failed")
         explanation = EXPLANATION_FALLBACK
+
+    try:
+        resource_searches = resource_search.search_for_gaps(
+            profile, determinations
+        )
+    except Exception:
+        logger.exception("resource search failed")
+        resource_searches = []
+
     return HTMLResponse(
         catalog.render(
             "Results",
             explanation=explanation,
             determinations=determinations,
+            resource_searches=resource_searches,
         )
     )

@@ -76,4 +76,4 @@ def test_screen_explanation_failure_keeps_results(monkeypatch):
         resp = client.post("/screen", data={"narrative": "help"})
     assert resp.status_code == 200
     assert "SNAP" in resp.text
-    assert screen_router.EXPLANATION_FALLBACK[:30] in resp.text
+    assert screen_router.EXPLANATION_FALLBACK.intro[:30] in resp.text

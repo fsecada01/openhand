@@ -99,17 +99,22 @@ def screen(profile: HouseholdProfile) -> Determination | None:
         )
 
     if profile.has_elderly_or_disabled:
-        return _det(
-            Status.undetermined,
-            [
-                "Medicare's disability pathway runs through SSDI: "
-                "you first qualify for SSDI (a qualifying disability "
-                "plus work history), then Medicare begins after 24 "
-                "months of benefits.",
-                "If you haven't applied for SSDI (or SSI, which "
-                "brings Medicaid instead), that application is the "
-                "place to start: ssa.gov/benefits/disability.",
-            ],
-        )
+        reasons = [
+            "Medicare's disability pathway runs through SSDI: "
+            "you first qualify for SSDI (a qualifying disability "
+            "plus work history), then Medicare begins after 24 "
+            "months of benefits.",
+            "If you haven't applied for SSDI (or SSI, which "
+            "brings Medicaid instead), that application is the "
+            "place to start: ssa.gov/benefits/disability.",
+        ]
+        if profile.disability_diagnosis_match:
+            reasons.insert(
+                0,
+                f"{profile.disability_diagnosis_match} is among the "
+                "conditions SSA's own disability listings recognize "
+                "— that can support an SSDI application.",
+            )
+        return _det(Status.undetermined, reasons)
 
     return None

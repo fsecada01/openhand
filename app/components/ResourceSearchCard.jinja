@@ -1,0 +1,29 @@
+{#def resource_searches #}
+<div class="card bg-base-100 border border-dashed border-warning/50 mt-6">
+  <div class="card-body">
+    <h3 class="card-title text-base">
+      Other resources to check
+      <span class="badge badge-outline badge-warning">as-is, unverified</span>
+    </h3>
+    <p class="text-xs opacity-70 mb-2">
+      These came from a web search for programs that didn't screen as
+      a strong federal match. They may be state or local programs we
+      haven't vetted &mdash; check details yourself before relying on
+      them, and they don't replace your local mutual aid network.
+    </p>
+    {% for search in resource_searches %}
+    <h4 class="font-semibold text-sm mt-3">{{ search.program_name }}</h4>
+    <ul class="list-disc ml-5 text-sm">
+      {% for r in search.results %}
+      <li>
+        <a class="link link-primary" href="{{ r.url }}" target="_blank"
+           rel="noopener">{{ r.title }}</a>
+        {% if r.snippet %}
+        <span class="opacity-70"> &mdash; {{ r.snippet }}</span>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endfor %}
+  </div>
+</div>

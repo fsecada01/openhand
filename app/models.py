@@ -12,6 +12,23 @@ from sqlalchemy_mixins.activerecord import ActiveRecordMixin
 from sqlmodel import JSON, Column, Field, SQLModel
 
 
+class DisabilityCondition(SQLModel, table=True):
+    """Reference lookup of SSA-recognized disabling conditions.
+
+    Seed data only, ingested once at startup (see `app.seed_data`) —
+    never user data. Used by `app.services.disability_lookup` to
+    annotate the Medicare-pathway wording with whether a self-reported
+    diagnosis matches SSA's own published listings; it never decides
+    eligibility itself.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True, unique=True)
+    category: str  # "mental_health" | "physical" | "other"
+    aliases: str = Field(default="")  # comma-separated lookup keywords
+    ssa_reference: str = Field(default="")
+
+
 class Screening(SQLModel, ActiveRecordMixin, table=True):
     """One anonymous screening run: profile in, determinations out."""
 

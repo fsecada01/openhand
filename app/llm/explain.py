@@ -3,15 +3,15 @@
 This pass is tightly scoped: it rewords the deterministic engine's
 output at a low reading level and adds next steps. It is explicitly
 forbidden from altering, second-guessing, or adding to the
-determinations. Streaming is used server-side to avoid request
-timeouts; callers get the final text.
+determinations. Output is structured (see `Explanation`) so the UI
+can render real headings/lists instead of parsing markdown-in-text.
 """
 
 import json
 
 from app import config
 from app.llm.client import get_client
-from app.schemas import Determination, HouseholdProfile
+from app.schemas import Determination, Explanation, HouseholdProfile
 
 SYSTEM = """\
 You turn benefit-screening results into a short, warm summary for the
@@ -23,31 +23,30 @@ Hard rules:
   beyond what the reasons say. If a status is "undetermined", say
   plainly that the screener couldn't tell and who can.
 - These are screening estimates, not decisions — only the agency that
-  runs each program can decide. Say this once, simply.
-- For each program: what the result means in one or two sentences,
-  then the single next step (the apply link).
-- Close by noting that local mutual aid networks remain a great
+  runs each program can decide. Say this once, simply, in the intro
+  or closing — not repeated per program.
+- One section per program in `sections`, heading = the program's
+  display name. Each section's `points`: what the result means in
+  plain language, then the single next step (mention the apply link
+  exists, the UI renders the actual link itself).
+- `closing`: note that local mutual aid networks remain a great
   resource alongside these programs — this tool adds options, it
   doesn't replace community help.
 - No names, no personal details beyond what's in the profile.
-- Output is rendered as plain pre-wrapped text, NOT markdown — never
-  use **bold**, #headings, bullet dashes, or any markdown syntax.
-  Use a program name on its own line followed by a blank line to set
-  it apart, nothing else.
 """
 
 
 def explain(
     profile: HouseholdProfile, determinations: list[Determination]
-) -> str:
+) -> Explanation:
     payload = {
         "household": profile.model_dump(mode="json"),
         "determinations": [d.model_dump(mode="json") for d in determinations],
     }
     client = get_client()
-    with client.messages.stream(
+    response = client.messages.parse(
         model=config.ANTHROPIC_EXPLAIN_MODEL,
-        max_tokens=8000,
+        max_tokens=4096,
         system=SYSTEM,
         messages=[
             {
@@ -56,6 +55,6 @@ def explain(
                 + json.dumps(payload, indent=2),
             }
         ],
-    ) as stream:
-        message = stream.get_final_message()
-    return next((b.text for b in message.content if b.type == "text"), "")
+        output_format=Explanation,
+    )
+    return response.parsed_output

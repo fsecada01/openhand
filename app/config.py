@@ -17,15 +17,21 @@ ANTHROPIC_API_KEY: SecretStr = SecretStr(
 ANTHROPIC_MODEL: str = config("ANTHROPIC_MODEL", default="claude-opus-4-8")
 
 # Explanation pass: constrained rewording of an already-decided
-# result, with a fallback if it fails — a lighter model than intake
-# is fine. Haiku 4.5 (current gen) rejects `thinking: adaptive`, and
-# this pass doesn't use extended thinking anyway, so it would also
-# work — but Sonnet is the steadier default until a newer Haiku ships.
+# result, with a fallback if it fails — a lighter, cheaper model than
+# intake is fine here. Haiku 4.5 rejects `thinking: adaptive` but does
+# support manual extended thinking (`type: "enabled"` + budget_tokens)
+# if this pass ever needs it; it doesn't today, since it's rewording,
+# not reasoning, so Haiku is a safe default either way.
 ANTHROPIC_EXPLAIN_MODEL: str = config(
-    "ANTHROPIC_EXPLAIN_MODEL", default="claude-sonnet-5"
+    "ANTHROPIC_EXPLAIN_MODEL", default="claude-haiku-4-5"
 )
 
 DATABASE_URL: str = config("DATABASE_URL", default="sqlite:///./openhand.db")
+
+# Optional: powers the "other resources to check" fallback search for
+# programs the federal screen didn't match well. Feature is simply
+# skipped (see app.services.resource_search) when unset.
+TAVILY_API_KEY: SecretStr = SecretStr(config("TAVILY_API_KEY", default=""))
 
 # Privacy-first: raw narratives are NOT persisted unless explicitly
 # enabled (e.g., for local debugging). Never enable in production.

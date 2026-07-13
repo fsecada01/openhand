@@ -19,6 +19,12 @@ class FilingStatus(StrEnum):
     other = "other"
 
 
+class DisabilityCategory(StrEnum):
+    mental_health = "mental_health"
+    physical = "physical"
+    other = "other"
+
+
 class HouseholdProfile(BaseModel):
     """Validated input to the deterministic eligibility engine."""
 
@@ -35,6 +41,12 @@ class HouseholdProfile(BaseModel):
     receives_ssdi: bool = False
     months_on_ssdi: int | None = Field(default=None, ge=0)
     has_als_or_esrd: bool = False
+    # Populated by app.services.disability_lookup at the router layer
+    # — a deterministic SQLite keyword scan of the raw narrative, not
+    # an LLM-extracted field (IntakeFacts is already right at Claude's
+    # structured-output schema complexity limit). Never a decision,
+    # only context for the Medicare-pathway wording.
+    disability_diagnosis_match: str | None = Field(default=None, max_length=200)
 
     @property
     def earned(self) -> float:
@@ -133,7 +145,11 @@ class IntakeExtraction(IntakeFacts):
         return HouseholdProfile(
             state=(self.state or "").upper(),
             household_size=self.household_size or 0,
-            monthly_gross_income=self.monthly_gross_income or -1,
+            monthly_gross_income=(
+                self.monthly_gross_income
+                if self.monthly_gross_income is not None
+                else -1
+            ),
             monthly_earned_income=self.monthly_earned_income,
             num_children=self.num_children or 0,
             filing_status=self.filing_status or FilingStatus.single,
@@ -165,3 +181,57 @@ class Determination(BaseModel):
     apply_url: str
     data_vintage: str
     source_url: str
+
+
+class ExplanationSection(BaseModel):
+    """One program's plain-language write-up in the summary card."""
+
+    heading: str = Field(
+        description="The program name this section covers, or a "
+        "short label like 'Next steps'."
+    )
+    points: list[str] = Field(
+        description="2-4 short, plain-language bullet points: what "
+        "the result means, then the single next step."
+    )
+
+
+class Explanation(BaseModel):
+    """Structured-output schema for the explanation LLM pass.
+
+    Rendered as real headings/lists (see ExplanationCard.jinja)
+    instead of markdown-in-plain-text, so formatting can't leak as
+    literal asterisks/hashes.
+    """
+
+    intro: str = Field(
+        description="1-2 warm opening sentences, no program specifics."
+    )
+    sections: list[ExplanationSection]
+    closing: str = Field(
+        description="Closing note: these are screening estimates, "
+        "and local mutual aid remains a great resource alongside "
+        "these programs."
+    )
+
+
+class ResourceLink(BaseModel):
+    """A single web-search result — informational, not a determination."""
+
+    title: str
+    url: str
+    snippet: str = ""
+
+
+class ResourceSearch(BaseModel):
+    """Tavily results for one poorly-matched program.
+
+    Explicitly non-authoritative and possibly state-specific —
+    kept separate from `Determination` so the UI never conflates
+    "provided as-is" web results with the deterministic federal
+    screening above.
+    """
+
+    program_name: str
+    query: str
+    results: list[ResourceLink]

@@ -7,8 +7,10 @@ clarifying question, which the UI relays to the user.
 """
 
 from app import config
-from app.llm.client import get_client
+from app.llm.client import get_client, thinking_kwargs
 from app.schemas import REQUIRED_FIELDS, IntakeExtraction, IntakeFacts
+
+MAX_TOKENS = 4096
 
 SYSTEM = """\
 You extract household facts from a person's own description of their
@@ -33,11 +35,11 @@ def extract(narrative: str) -> IntakeExtraction:
     client = get_client()
     response = client.messages.parse(
         model=config.ANTHROPIC_MODEL,
-        max_tokens=4096,
-        thinking={"type": "adaptive"},
+        max_tokens=MAX_TOKENS,
         system=SYSTEM,
         messages=[{"role": "user", "content": narrative}],
         output_format=IntakeFacts,
+        **thinking_kwargs(config.ANTHROPIC_MODEL, MAX_TOKENS),
     )
     facts: IntakeFacts = response.parsed_output
     # What's missing, and the question to ask, are decided in Python
