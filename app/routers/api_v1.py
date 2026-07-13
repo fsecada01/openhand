@@ -1,7 +1,9 @@
 """JSON API (v1)."""
 
+import logging
 from typing import Annotated
 
+import anthropic
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from slowapi import Limiter
@@ -14,11 +16,13 @@ from app.db import get_session
 from app.engine import ENGINE_VERSION, evaluate
 from app.llm import explain as explain_mod
 from app.llm import intake
+from app.llm.client import LLMNotConfiguredError
 from app.models import Screening
 from app.schemas import Determination, HouseholdProfile
 
 router = APIRouter(prefix="/api/v1")
 limiter = Limiter(key_func=get_remote_address)
+logger = logging.getLogger(__name__)
 
 
 class ScreenRequest(BaseModel):
@@ -43,7 +47,27 @@ async def screen(
     body: ScreenRequest,
     session: Annotated[Session, Depends(get_session)],
 ):
-    extraction = intake.extract(body.narrative)
+    try:
+        extraction = intake.extract(body.narrative)
+    except (LLMNotConfiguredError, anthropic.AuthenticationError) as exc:
+        logger.exception("intake auth failure")
+        raise HTTPException(
+            status_code=503,
+            detail="Screening assistant is not configured "
+            "(missing or invalid ANTHROPIC_API_KEY).",
+        ) from exc
+    except anthropic.RateLimitError as exc:
+        raise HTTPException(
+            status_code=429,
+            detail="Upstream rate limit hit — retry shortly.",
+        ) from exc
+    except anthropic.APIError as exc:
+        logger.exception("intake failed")
+        raise HTTPException(
+            status_code=502,
+            detail="Screening assistant is unavailable — retry shortly.",
+        ) from exc
+
     if extraction.missing_required:
         return ScreenResponse(
             complete=False,
@@ -62,9 +86,14 @@ async def screen(
         ),
         session,
     )
-    explanation = (
-        explain_mod.explain(profile, determinations) if body.explain else None
-    )
+    explanation = None
+    if body.explain:
+        # The engine already decided; a summary failure must never
+        # cost the caller their determinations.
+        try:
+            explanation = explain_mod.explain(profile, determinations)
+        except Exception:
+            logger.exception("explanation failed")
     return ScreenResponse(
         complete=True,
         profile=profile,

@@ -1,7 +1,9 @@
 """Server-rendered screening flow (JinjaX components + HTMX)."""
 
+import logging
 from typing import Annotated
 
+import anthropic
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
 from slowapi import Limiter
@@ -14,11 +16,22 @@ from app.db import get_session
 from app.engine import ENGINE_VERSION, evaluate
 from app.llm import explain as explain_mod
 from app.llm import intake
+from app.llm.client import LLMNotConfiguredError
 from app.models import Screening
 from app.ui import catalog
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
+logger = logging.getLogger(__name__)
+
+EXPLANATION_FALLBACK = (
+    "We couldn't generate the plain-language summary just now, but "
+    "the program-by-program details below are complete."
+)
+
+
+def _error_alert(message: str) -> HTMLResponse:
+    return HTMLResponse(catalog.render("ErrorAlert", message=message))
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -40,7 +53,33 @@ async def screen(
             f"{prior_narrative.strip()}\n\nAdditional info: {narrative.strip()}"
         )
 
-    extraction = intake.extract(combined)
+    try:
+        extraction = intake.extract(combined)
+    except (LLMNotConfiguredError, anthropic.AuthenticationError):
+        logger.exception("intake auth failure")
+        return _error_alert(
+            "This site isn't connected to its screening assistant "
+            "yet (missing or invalid API key). The site owner needs "
+            "to configure ANTHROPIC_API_KEY."
+        )
+    except anthropic.RateLimitError:
+        return _error_alert(
+            "We're handling a lot of requests right now. Please "
+            "wait a minute and try again."
+        )
+    except anthropic.APIConnectionError:
+        return _error_alert(
+            "We couldn't reach the screening assistant. Please try "
+            "again in a moment."
+        )
+    except Exception:
+        logger.exception("intake failed")
+        return _error_alert(
+            "Something went wrong reading your message. Nothing you "
+            "typed was stored — please try again, and if it keeps "
+            "happening, let us know on GitHub."
+        )
+
     if extraction.missing_required:
         return HTMLResponse(
             catalog.render(
@@ -63,7 +102,13 @@ async def screen(
         session,
     )
 
-    explanation = explain_mod.explain(profile, determinations)
+    # The engine already decided; a summary failure must never cost
+    # the user their results.
+    try:
+        explanation = explain_mod.explain(profile, determinations)
+    except Exception:
+        logger.exception("explanation failed")
+        explanation = EXPLANATION_FALLBACK
     return HTMLResponse(
         catalog.render(
             "Results",

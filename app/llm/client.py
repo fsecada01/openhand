@@ -6,6 +6,7 @@ truth. Falls back to the SDK's own environment resolution when the
 .env entry is empty.
 """
 
+import os
 from functools import lru_cache
 
 import anthropic
@@ -13,9 +14,19 @@ import anthropic
 from app import config
 
 
+class LLMNotConfiguredError(RuntimeError):
+    """No Anthropic API key available in .env or the environment."""
+
+
 @lru_cache(maxsize=1)
 def get_client() -> anthropic.Anthropic:
     key = config.ANTHROPIC_API_KEY.get_secret_value()
     if key:
         return anthropic.Anthropic(api_key=key)
-    return anthropic.Anthropic()
+    if os.environ.get("ANTHROPIC_API_KEY") or os.environ.get(
+        "ANTHROPIC_AUTH_TOKEN"
+    ):
+        return anthropic.Anthropic()
+    raise LLMNotConfiguredError(
+        "Set ANTHROPIC_API_KEY in .env or the environment."
+    )

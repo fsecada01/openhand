@@ -5,6 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ title }}</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤲</text></svg>">
   <link href="https://cdn.jsdelivr.net/npm/daisyui@5"
         rel="stylesheet" type="text/css">
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4">
@@ -29,5 +30,35 @@
     </header>
     <main>{{ content }}</main>
   </div>
+  <div id="toast-container" class="toast toast-top toast-end z-50">
+  </div>
+  <script>
+    function showToast(message) {
+      const container = document.getElementById("toast-container");
+      const toast = document.createElement("div");
+      toast.className = "alert alert-error shadow-lg";
+      toast.setAttribute("role", "alert");
+      const text = document.createElement("span");
+      text.textContent = message;
+      toast.appendChild(text);
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 8000);
+    }
+    document.body.addEventListener("htmx:responseError", (e) => {
+      showToast(
+        "Something went wrong on our end (error " +
+        e.detail.xhr.status +
+        "). Nothing you typed was stored — please try again in a moment."
+      );
+    });
+    document.body.addEventListener("htmx:sendError", () => {
+      showToast(
+        "We couldn't reach the server. Check your connection and try again."
+      );
+    });
+    document.body.addEventListener("htmx:timeout", () => {
+      showToast("The request timed out. Please try again.");
+    });
+  </script>
 </body>
 </html>
