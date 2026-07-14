@@ -63,11 +63,12 @@ filler, low reading level (see `Home.jinja`, `Confirm.jinja`).
    Followed immediately by the 3-card visual (below) so the claim is
    reinforced visually, not just asserted in prose.
 
-2. **Origin story.** Short paragraph: OpenHand grew out of
-   categorizing 217 real requests from a mutual aid Facebook thread —
-   the recurring pattern of needs (food, rent, utilities, medical
-   bills, disability income) that a benefit program should often
-   already be covering.
+2. **Origin story.** Short paragraph, kept general rather than
+   quantified: OpenHand grew out of watching real mutual aid requests
+   and noticing how often what people were asking their community for
+   was something a government program was already meant to cover. No
+   specific numbers, source, or category breakdown — the point is the
+   insight, not the methodology.
 
 3. **Additive-to-mutual-aid stance.** One paragraph: mutual aid
    networks already do real-time, peer-to-peer triage faster than any
@@ -76,12 +77,21 @@ filler, low reading level (see `Home.jinja`, `Confirm.jinja`).
    community's capacity goes toward the gaps formal systems don't
    reach.
 
-4. **Privacy specifics.** Concrete, not just a repeated badge:
-   nothing typed is stored beyond what's needed to answer follow-up
-   questions in the same session, no accounts, no payment information
-   is ever asked for. This is one level more substantive than the
-   homepage's "🔒 Nothing you type is stored" badge, not a repeat of
-   it.
+4. **Privacy, in plain terms.** Warm, not technical — no mention of
+   sessions, storage internals, or system architecture. The point to
+   land: OpenHand isn't trying to find out *who you are*, only what
+   you need. It never asks for your name, address, ID numbers, or
+   anything used to pay you back. Something like:
+
+   > We're not trying to find out who you are — just what you need.
+   > OpenHand never asks for your name, your address, or anything
+   > that could pay you back or identify you. Describe your situation
+   > in your own words; that's all it takes.
+
+   This goes a level deeper than the homepage's "🔒 Nothing you type
+   is stored" badge by naming *what kind of information is out of
+   scope* (identity, contact, payment details), not just restating
+   that nothing is stored.
 
 5. **Closing link back to the form** (e.g., a button/link to `/`) so
    the page doesn't dead-end — someone reading About should be able
@@ -98,8 +108,8 @@ design principle).
 
 ```
 [🗣️ You describe it]  →  [⚖️ Rules engine decides]  →  [💬 Plain-language answer]
-   "no forms, no             "cited program                "what to apply for,
-    account"                  thresholds, no LLM"            where, what to bring"
+   "no forms, no             "same rules real                "what to apply for,
+    account"                  screeners use"                  where, what to bring"
 ```
 
 Three `card bg-base-100 shadow-lg border border-base-300/60` cards in
