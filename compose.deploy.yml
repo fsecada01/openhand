@@ -13,11 +13,21 @@ services:
       - stack.env
     environment:
       # Registrator registers the published port under this name in
-      # Consul, which Traefik's defaultRule turns into
-      # openhand.francissecada.com.
+      # Consul; Traefik reads the labels below as consul tags.
       SERVICE_NAME: openhand
       DATABASE_URL: sqlite:////app/data/openhand.db
       SQL_DIALECT: sqlite
+    # Traefik's consulCatalog provider has exposedByDefault: false —
+    # these labels ride through Registrator into Consul tags and opt
+    # the service in. server.url must be host IP + published port
+    # (Traefik on .76 can't reach .62 container IPs).
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.openhand.rule=Host(`openhand.francissecada.com`)"
+      - "traefik.http.routers.openhand.entrypoints=websecure"
+      - "traefik.http.routers.openhand.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.openhand.middlewares=secureHeaders@file"
+      - "traefik.http.services.openhand.loadbalancer.server.url=http://192.168.1.62:8010"
     volumes:
       - openhand_data:/app/data
 
