@@ -101,6 +101,24 @@ just lint               # ruff check + format check
 **Stack:** FastAPI · SQLModel · JinjaX components + HTMX + daisyUI ·
 Anthropic SDK (`claude-opus-4-8`) · slowapi · uv.
 
+## 🐳 Docker
+
+```bash
+cp .env.example .env    # add your ANTHROPIC_API_KEY
+docker compose up --build   # → http://127.0.0.1:8000
+```
+
+The sqlite database persists in the `openhand_data` named volume, not
+inside the container. A container is considered up once `/healthz`
+returns `200`.
+
+CI builds and pushes `fsecada01/openhand:latest` (+ `:<git-sha>`) to
+Docker Hub on every push to `main` (see
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml)). That job
+needs two repo secrets under **Settings → Secrets and variables →
+Actions**: `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` (a Docker Hub
+access token, not your account password).
+
 ## 🔌 API
 
 **Deterministic only** — structured profile in, determinations out.

@@ -1,0 +1,19 @@
+services:
+  openhand:
+    build: .
+    image: openhand:local
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # Overrides .env.example's relative default so the sqlite file
+      # always lands on the mounted volume below, not an ephemeral
+      # path inside the container.
+      DATABASE_URL: sqlite:////app/data/openhand.db
+    volumes:
+      - openhand_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  openhand_data:
