@@ -2,14 +2,16 @@
 federal screen matched poorly.
 
 Explicitly out of scope for the "engine decides" rule — this never
-touches eligibility status. It only surfaces state-based or other
-online resources, presented as-is, when a determination is
-`likely_ineligible` or `undetermined`, plus a standing veteran-benefits
-query when the household reports veteran status (no VA program is
-screened by the engine, so that signal has nowhere else to surface).
+touches eligibility status. For each determination that is
+`likely_ineligible` or `undetermined` (plus a standing veteran-benefits
+pair when the household reports veteran status, since no VA program is
+screened by the engine), it runs two searches: one for other state
+assistance programs, and one for local mutual aid networks, charities,
+and grant-based private assistance — additive to mutual aid rather
+than a formal-programs-only view. All results are presented as-is.
 Skipped entirely (returns []) if no TAVILY_API_KEY is configured, or
-if the search itself fails — this is supplementary, never allowed to
-cost the user their results.
+if a given search fails — this is supplementary, never allowed to cost
+the user their results.
 """
 
 import logging
@@ -53,24 +55,32 @@ def search_for_gaps(
         d for d in determinations if d.status in POOR_MATCH_STATUSES
     ][:MAX_PROGRAMS]
 
-    queries = [
-        (
-            d.program_name,
-            f"{d.program_name} alternatives or state assistance "
-            f"programs in {profile.state} for someone who may not "
-            "qualify for the federal program",
+    queries: list[tuple[str, str]] = []
+    for d in poor_matches:
+        queries.append(
+            (d.program_name, _formal_query(d.program_name, profile.state))
         )
-        for d in poor_matches
-    ]
+        queries.append(
+            (
+                f"{d.program_name} — mutual aid & private assistance",
+                _community_query(d.program_name, profile.state),
+            )
+        )
     # No VA program is screened by the engine, so veteran status can
-    # never surface here via a poor-match Determination — add it as a
-    # standing extra query instead, independent of eligibility status.
+    # never surface here via a poor-match Determination — add it as
+    # standing extra queries instead, independent of eligibility status.
     if profile.is_veteran:
         queries.append(
             (
                 "Veterans benefits",
-                f"VA disability, pension, and other veterans benefits "
+                "VA disability, pension, and other veterans benefits "
                 f"in {profile.state}",
+            )
+        )
+        queries.append(
+            (
+                "Veterans benefits — mutual aid & private assistance",
+                _community_query("veterans", profile.state),
             )
         )
 
@@ -89,7 +99,7 @@ def search_for_gaps(
             ResourceLink(
                 title=r.get("title", ""),
                 url=r.get("url", ""),
-                snippet=r.get("content", "")[:280],
+                snippet=_clean_snippet(r.get("content", "")),
             )
             for r in response.get("results", [])
         ]
@@ -100,3 +110,28 @@ def search_for_gaps(
                 )
             )
     return searches
+
+
+def _formal_query(program_name: str, state: str) -> str:
+    return (
+        f"{program_name} alternatives or state assistance programs in "
+        f"{state} for someone who may not qualify for the federal program"
+    )
+
+
+def _community_query(need: str, state: str) -> str:
+    return (
+        "local mutual aid networks, charitable organizations, or "
+        "grant-based private assistance programs administered by "
+        f"social services agencies or nonprofits, for {need} in {state}"
+    )
+
+
+def _clean_snippet(content: str) -> str:
+    """Collapse whitespace; keep the full text.
+
+    Truncation is a display concern, not a data concern — the
+    template previews this behind a "Read more" toggle instead of the
+    snippet being cut short (and mid-word) here.
+    """
+    return " ".join(content.split())
