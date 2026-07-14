@@ -1,16 +1,18 @@
-{#def action="/screen", target="#flow", swap="innerHTML" #}
-{# HTMX form primitive: posts to `action`, swaps the response into
-   `target`, and toggles any nested `.spinner` (see SubmitButton)
-   while the request is in flight. Extra attributes (class, id, ...)
+{#def action="/screen", target="#flow", swap="beforeend" #}
+{# HTMX form primitive: posts to `action`, appends the response as a
+   new child of `target`, and toggles any nested `.spinner` (see
+   SubmitButton) while the request is in flight. Once a submission
+   succeeds, this form's own fields are disabled — it reads as a sent
+   message in the transcript rather than a live, resubmittable form
+   sitting in the middle of it. Extra attributes (class, id, ...)
    pass through.
 
-   `target` defaults to `#flow`, the single container that holds
-   whichever card is currently active (initial form, Clarify, Confirm,
-   Results, ...). Every round's form swaps that whole container's
-   contents, so the previous card never lingers alongside the new
-   one. #}
+   `target` defaults to `#flow`, the running conversation log
+   (initial form, Clarify, Confirm, Results, ... each appended in
+   turn) — never replaced, only ever added to. #}
 <form hx-post="{{ action }}" hx-target="{{ target }}"
       hx-swap="{{ swap }}" hx-indicator="this"
+      hx-on::after-request="if (event.detail.successful) this.querySelectorAll('textarea, input, button').forEach((el) => el.disabled = true)"
       {{ attrs.render() }}>
   {{ content }}
 </form>
