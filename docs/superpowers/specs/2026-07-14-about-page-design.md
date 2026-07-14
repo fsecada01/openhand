@@ -77,21 +77,52 @@ filler, low reading level (see `Home.jinja`, `Confirm.jinja`).
    community's capacity goes toward the gaps formal systems don't
    reach.
 
-4. **Privacy, in plain terms.** Warm, not technical — no mention of
-   sessions, storage internals, or system architecture. The point to
-   land: OpenHand isn't trying to find out *who you are*, only what
-   you need. It never asks for your name, address, ID numbers, or
-   anything used to pay you back. Something like:
+4. **Privacy: what's collected and where it goes.** Two paragraphs —
+   accessible, but willing to name real mechanics rather than staying
+   at the badge level. Verified against the actual implementation
+   (`app/models.py`, `app/db.py`, `app/config.py`) so every claim
+   below is true, not just reassuring-sounding:
 
-   > We're not trying to find out who you are — just what you need.
-   > OpenHand never asks for your name, your address, or anything
-   > that could pay you back or identify you. Describe your situation
-   > in your own words; that's all it takes.
+   > OpenHand isn't trying to find out who you are — just what you
+   > need. There are no user accounts, so there's nothing tied to you
+   > to look up or lose. The only thing saved is a structured record
+   > of the situation you described (household size, income, what
+   > you're facing) and what you qualified for — never your name,
+   > address, or payment details. That record lives in a plain
+   > database we run ourselves, not a third-party cloud data
+   > warehouse. If it were wiped tomorrow, nothing about your access
+   > to OpenHand would change, because there's no account to lose.
+   >
+   > To understand your situation and turn the results into plain
+   > language, OpenHand sends what you type to Anthropic's Claude
+   > models. Claude reads and explains — it never decides what you
+   > qualify for; that's the rules engine's job (see above).
 
-   This goes a level deeper than the homepage's "🔒 Nothing you type
-   is stored" badge by naming *what kind of information is out of
-   scope* (identity, contact, payment details), not just restating
-   that nothing is stored.
+   Accuracy notes for whoever implements this (do not soften these
+   into inaccuracy):
+   - "No user accounts" — true, there is no auth/login anywhere in
+     the app.
+   - "Structured record... never your name, address, or payment
+     details" — matches `Screening` (`app/models.py:32-44`): stores
+     `profile` (the structured household JSON), `determinations`,
+     `engine_version`; the raw narrative is stored **only** when the
+     operator-only `STORE_NARRATIVES` debug flag is on
+     (`app/config.py:38`, default `False`) — don't claim narratives
+     are never stored under any configuration, since that flag
+     exists. Phrase it as "in normal operation" if that nuance needs
+     to survive into the copy.
+   - "A plain database we run ourselves, not a third-party cloud data
+     warehouse" — accurate: SQLite file in a Docker volume on the
+     project's own server (see `openhand-deployment` memory), not a
+     hosted third-party database service.
+   - "Sends what you type to Anthropic's Claude models" — accurate:
+     `app/llm/client.py` calls the Anthropic API directly for both
+     intake extraction and explanation.
+
+   This replaces the homepage's "🔒 Nothing you type is stored" badge
+   copy with something more precise, not stronger than the underlying
+   guarantee — the badge itself should stay as-is (out of scope for
+   this spec).
 
 5. **Closing link back to the form** (e.g., a button/link to `/`) so
    the page doesn't dead-end — someone reading About should be able
