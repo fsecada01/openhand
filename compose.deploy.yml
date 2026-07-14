@@ -19,7 +19,12 @@ services:
       # server.url must be host IP + published port — Traefik on .76
       # can't reach .62 container IPs.
       SERVICE_NAME: openhand
-      SERVICE_TAGS: "traefik.enable=true,traefik.http.routers.openhand.rule=Host(`openhand.francissecada.com`),traefik.http.routers.openhand.entrypoints=websecure,traefik.http.routers.openhand.tls.certresolver=letsencrypt,traefik.http.routers.openhand.middlewares=secureHeaders@file,traefik.http.services.openhand.loadbalancer.server.url=http://192.168.1.62:8010"
+      # Both hostnames route to the same service — see the openwebui
+      # stack for the same `||` pattern. openhandnavigator.org needs
+      # its own A record (see project notes) before Traefik's HTTP-01
+      # challenge can issue it a cert; openhand.francissecada.com
+      # keeps working in the meantime.
+      SERVICE_TAGS: "traefik.enable=true,traefik.http.routers.openhand.rule=Host(`openhand.francissecada.com`) || Host(`openhandnavigator.org`) || Host(`www.openhandnavigator.org`),traefik.http.routers.openhand.entrypoints=websecure,traefik.http.routers.openhand.tls.certresolver=letsencrypt,traefik.http.routers.openhand.middlewares=secureHeaders@file,traefik.http.services.openhand.loadbalancer.server.url=http://192.168.1.62:8010"
       DATABASE_URL: sqlite:////app/data/openhand.db
       SQL_DIALECT: sqlite
     volumes:
