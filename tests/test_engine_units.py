@@ -222,10 +222,28 @@ def test_snap_self_employed_sole_prop_uses_net_income():
     assert d.status == Status.likely_eligible
 
 
-def test_snap_self_employed_s_corp_not_substituted():
+def test_snap_self_employed_s_corp_uses_magi_style_income():
+    # A stale/rough monthly_gross_income (as first volunteered) must
+    # not silently outrank the more precise W-2 + K-1 breakdown
+    # gathered later — SNAP should agree with Medicaid/EITC on the
+    # same household's income, not use a different, unreconciled
+    # figure just because it's an S-Corp.
     d = snap.screen(
         profile(
-            monthly_gross_income=5_000,
+            monthly_gross_income=10_000,
+            is_self_employed=True,
+            business_structure="s_corp",
+            monthly_w2_wages_from_business=800,
+            monthly_k1_distributions=0,
+        )
+    )
+    assert d.status == Status.likely_eligible
+
+
+def test_snap_self_employed_s_corp_k1_still_counts_toward_income_test():
+    d = snap.screen(
+        profile(
+            monthly_gross_income=1_000,
             is_self_employed=True,
             business_structure="s_corp",
             monthly_w2_wages_from_business=1_000,

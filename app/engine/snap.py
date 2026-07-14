@@ -76,19 +76,28 @@ def screen(profile: HouseholdProfile) -> Determination:
     size = profile.household_size
     # SNAP counts NET self-employment income (gross receipts minus
     # business costs), never gross receipts — substitute it for gross
-    # income whenever it's available. S-Corp self-employment income
-    # isn't modeled here (no sourced SNAP rule for the wage/
-    # distribution split), so it falls through to monthly_gross_income
-    # unchanged.
+    # income whenever it's available. There's no sourced SNAP-specific
+    # rule for the S-Corp wage/distribution split, so rather than
+    # falling back to a stale monthly_gross_income figure that can
+    # silently disagree with what Medicaid/EITC show for the same
+    # household in the same report, S-Corp households use the same
+    # MAGI-style total (W-2 wages + K-1 distributions) Medicaid uses
+    # for the income tests — that's the actual money reaching the
+    # household. Only the W-2 wages count toward the 20% earned-income
+    # deduction below, since K-1 distributions aren't earned income.
     self_employed_net = profile.self_employment_net_monthly
+    is_s_corp = profile.business_structure == BusinessStructure.s_corp
     use_self_employment = (
         profile.is_self_employed
-        and profile.business_structure != BusinessStructure.s_corp
+        and not is_s_corp
         and self_employed_net is not None
     )
     if use_self_employment:
         income = self_employed_net
         earned = self_employed_net
+    elif is_s_corp:
+        income = profile.magi_income_monthly
+        earned = profile.eitc_earned_income_monthly
     else:
         income = profile.monthly_gross_income
         earned = profile.earned

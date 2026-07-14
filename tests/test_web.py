@@ -65,6 +65,10 @@ def test_screen_intake_failure_renders_error_alert(monkeypatch):
     assert resp.status_code == 200
     assert "alert-error" in resp.text
     assert "Nothing you typed was stored" in resp.text
+    # Error alerts ride on HTTP 200, so this header is the only thing
+    # stopping Form.jinja from disabling the form the person needs to
+    # retry with (see _error_alert).
+    assert resp.headers.get("X-OpenHand-Error") == "1"
 
 
 def test_screen_clarify_carries_round_num(monkeypatch):
@@ -515,6 +519,9 @@ def test_screen_phase_two_feedback_regenerates_results(monkeypatch):
     monkeypatch.setattr(
         screen_router.resource_search, "search_for_gaps", lambda p, d: []
     )
+    monkeypatch.setattr(
+        screen_router.resource_search, "search_for_question", lambda q, s: None
+    )
     with TestClient(app) as client:
         # `reported=1` means a report already exists — this round is
         # feedback, so it must go straight back to Results, never
@@ -532,6 +539,130 @@ def test_screen_phase_two_feedback_regenerates_results(monkeypatch):
     assert "SNAP" in resp.text
     assert "did we" not in resp.text.lower()
     assert 'name="round_num" value="4"' in resp.text
+
+
+def test_screen_phase_two_question_triggers_targeted_search(monkeypatch):
+    from app.routers import screen as screen_router
+    from app.schemas import (
+        Explanation,
+        IntakeExtraction,
+        ResourceLink,
+        ResourceSearch,
+        SupplementalFacts,
+    )
+
+    monkeypatch.setattr(
+        screen_router.intake,
+        "extract",
+        lambda n, **_: IntakeExtraction(
+            state="NY", household_size=3, monthly_gross_income=2000
+        ),
+    )
+    monkeypatch.setattr(
+        screen_router.supplemental_mod,
+        "extract_supplemental",
+        lambda n: SupplementalFacts(),
+    )
+    monkeypatch.setattr(
+        screen_router.explain_mod,
+        "explain",
+        lambda profile, determinations: Explanation(
+            intro="intro", sections=[], closing=""
+        ),
+    )
+    monkeypatch.setattr(
+        screen_router.resource_search, "search_for_gaps", lambda p, d: []
+    )
+    seen = {}
+
+    def fake_search_for_question(question, state):
+        seen["question"] = question
+        seen["state"] = state
+        return ResourceSearch(
+            program_name="About your question",
+            query="job placement programs in NY",
+            results=[
+                ResourceLink(
+                    title="NY job placement help",
+                    url="https://example.com/jobs",
+                    snippet="...",
+                )
+            ],
+        )
+
+    monkeypatch.setattr(
+        screen_router.resource_search,
+        "search_for_question",
+        fake_search_for_question,
+    )
+    with TestClient(app) as client:
+        resp = client.post(
+            "/screen",
+            data={
+                "narrative": (
+                    "What about job searching/placement programs in NYC?"
+                ),
+                "prior_narrative": "help",
+                "round_num": 3,
+                "reported": "1",
+            },
+        )
+    assert resp.status_code == 200
+    assert seen["question"] == (
+        "What about job searching/placement programs in NYC?"
+    )
+    assert seen["state"] == "NY"
+    assert "About your question" in resp.text
+    assert "NY job placement help" in resp.text
+
+
+def test_screen_no_new_text_skips_question_search(monkeypatch):
+    from app.routers import screen as screen_router
+    from app.schemas import Explanation, IntakeExtraction, SupplementalFacts
+
+    monkeypatch.setattr(
+        screen_router.intake,
+        "extract",
+        lambda n, **_: IntakeExtraction(
+            state="OH", household_size=3, monthly_gross_income=2000
+        ),
+    )
+    monkeypatch.setattr(
+        screen_router.supplemental_mod,
+        "extract_supplemental",
+        lambda n: SupplementalFacts(),
+    )
+    monkeypatch.setattr(
+        screen_router.explain_mod,
+        "explain",
+        lambda profile, determinations: Explanation(
+            intro="intro", sections=[], closing=""
+        ),
+    )
+    monkeypatch.setattr(
+        screen_router.resource_search, "search_for_gaps", lambda p, d: []
+    )
+
+    def fail_if_called(question, state):
+        raise AssertionError(
+            "search_for_question must not run without new text"
+        )
+
+    monkeypatch.setattr(
+        screen_router.resource_search, "search_for_question", fail_if_called
+    )
+    with TestClient(app) as client:
+        resp = client.post(
+            "/screen",
+            data={
+                "narrative": "",
+                "prior_narrative": "help",
+                "round_num": 3,
+                "reported": "1",
+            },
+        )
+    assert resp.status_code == 200
+    assert "SNAP" in resp.text
 
 
 def test_results_no_feedback_form_at_round_limit(monkeypatch):
@@ -559,6 +690,9 @@ def test_results_no_feedback_form_at_round_limit(monkeypatch):
     )
     monkeypatch.setattr(
         screen_router.resource_search, "search_for_gaps", lambda p, d: []
+    )
+    monkeypatch.setattr(
+        screen_router.resource_search, "search_for_question", lambda q, s: None
     )
     with TestClient(app) as client:
         resp = client.post(

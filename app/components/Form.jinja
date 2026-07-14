@@ -9,10 +9,19 @@
 
    `target` defaults to `#flow`, the running conversation log
    (initial form, Clarify, Confirm, Results, ... each appended in
-   turn) — never replaced, only ever added to. #}
+   turn) — never replaced, only ever added to.
+
+   `hx-sync="this:drop"` drops re-submissions while a request is in
+   flight — without it a double-click aborts and re-issues the
+   request, costing a duplicate LLM/search round server-side.
+
+   Handled errors come back as HTTP 200 with an X-OpenHand-Error
+   header (see `_error_alert` in the screen router) — those must NOT
+   disable the form, or the "please try again" alert would sit next
+   to a form the person can no longer resubmit. #}
 <form hx-post="{{ action }}" hx-target="{{ target }}"
-      hx-swap="{{ swap }}" hx-indicator="this"
-      hx-on::after-request="if (event.detail.successful) this.querySelectorAll('textarea, input, button').forEach((el) => el.disabled = true)"
+      hx-swap="{{ swap }}" hx-indicator="this" hx-sync="this:drop"
+      hx-on::after-request="if (event.detail.successful && !event.detail.xhr.getResponseHeader('X-OpenHand-Error')) this.querySelectorAll('textarea, input, button').forEach((el) => el.disabled = true)"
       {{ attrs.render() }}>
   {{ content }}
 </form>

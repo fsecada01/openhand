@@ -103,3 +103,46 @@ def test_search_for_gaps_returns_empty_without_api_key(monkeypatch):
         ),
     )
     assert resource_search.search_for_gaps(_profile(), []) == []
+
+
+def test_search_for_question_uses_the_persons_own_words(monkeypatch):
+    fake = FakeTavilyClient()
+    monkeypatch.setattr(resource_search, "_get_client", lambda: fake)
+
+    result = resource_search.search_for_question(
+        "What about job searching/placement programs in NYC?", "NY"
+    )
+
+    assert result is not None
+    assert result.program_name == "About your question"
+    assert "job searching/placement programs" in result.query
+    assert "NY" in result.query
+    assert fake.queries == [result.query]
+
+
+def test_search_for_question_blank_text_skips_the_search(monkeypatch):
+    fake = FakeTavilyClient()
+    monkeypatch.setattr(resource_search, "_get_client", lambda: fake)
+
+    assert resource_search.search_for_question("   ", "NY") is None
+    assert fake.queries == []
+
+
+def test_search_for_question_returns_none_without_api_key(monkeypatch):
+    monkeypatch.setattr(
+        resource_search,
+        "_get_client",
+        lambda: (_ for _ in ()).throw(
+            resource_search.TavilyNotConfiguredError()
+        ),
+    )
+    assert resource_search.search_for_question("job help", "NY") is None
+
+
+def test_search_for_question_returns_none_when_search_fails(monkeypatch):
+    class FailingClient:
+        def search(self, **kwargs):
+            raise RuntimeError("boom")
+
+    monkeypatch.setattr(resource_search, "_get_client", lambda: FailingClient())
+    assert resource_search.search_for_question("job help", "NY") is None

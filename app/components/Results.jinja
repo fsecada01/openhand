@@ -37,7 +37,11 @@
              value="{{ prior_narrative }}">
       <input type="hidden" name="round_num" value="{{ round_num }}">
       <input type="hidden" name="reported" value="1">
-      <textarea name="narrative"
+      {# `required`: an empty "Update results" click would re-run the
+         whole pipeline (intake LLM, engine, explanation LLM, every
+         resource search) for an identical report — there's nothing
+         to update without new text, so don't allow the submit. #}
+      <textarea name="narrative" required
                 class="textarea textarea-bordered w-full mt-2
                        focus:textarea-primary transition-colors"
                 placeholder="What should we add or look into?"></textarea>

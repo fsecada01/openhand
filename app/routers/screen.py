@@ -83,7 +83,16 @@ EXPLANATION_FALLBACK = Explanation(
 
 
 def _error_alert(message: str) -> HTMLResponse:
-    return HTMLResponse(catalog.render("ErrorAlert", message=message))
+    # Error alerts are delivered as HTTP 200 (they're rendered into
+    # the conversation, not handled by the htmx error toast), so the
+    # form's "disable yourself once sent" behavior would otherwise
+    # treat them as success and lock the user's still-unprocessed
+    # text in a disabled form right next to a "please try again"
+    # message. This header tells Form.jinja to leave the form live.
+    return HTMLResponse(
+        catalog.render("ErrorAlert", message=message),
+        headers={"X-OpenHand-Error": "1"},
+    )
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -162,12 +171,19 @@ async def screen(
             # report already exists — this round is feedback/more
             # detail to refine it (and its resource search), not
             # intake, so it never goes back through Clarify/Confirm.
+            # `addition` (this round's new text, not the full
+            # accumulated narrative) also drives one extra, targeted
+            # resource search — see `_render_results` — so a literal
+            # follow-up question ("what about job placement programs
+            # in NYC?") gets an actual answer instead of silently
+            # re-running the same fixed per-program searches.
             return _render_results(
                 combined,
                 extraction,
                 session,
                 round_num=round_num,
                 offer_feedback=not at_round_limit,
+                question=addition or None,
             )
 
         # Required facts (state/household_size/income) have to be in
@@ -244,11 +260,18 @@ def _render_results(
     session: Session,
     round_num: int,
     offer_feedback: bool,
+    question: str | None = None,
 ) -> HTMLResponse:
     """Run the engine + explanation + resource search and render
     Results. Shared by the initial report (end of the gather phase)
     and every phase-2 feedback round (re-run against the accumulated
     narrative) — see the `reported` flag in `screen()`.
+
+    `question`, when given, is this round's newly-added text (phase-2
+    only) — it drives one extra, targeted resource search on top of
+    the standard per-program ones, since neither the engine, the
+    explanation pass, nor `search_for_gaps` ever look at the raw
+    narrative.
     """
     # Optional second pass (housing/utility cost, assets, disability,
     # veteran status, self-employment breakdown, ...) — never
@@ -291,6 +314,17 @@ def _render_results(
     except Exception:
         logger.exception("resource search failed")
         resource_searches = []
+
+    if question:
+        try:
+            question_search = resource_search.search_for_question(
+                question, profile.state
+            )
+        except Exception:
+            logger.exception("question-driven resource search failed")
+            question_search = None
+        if question_search:
+            resource_searches = [question_search] + resource_searches
 
     return HTMLResponse(
         catalog.render(

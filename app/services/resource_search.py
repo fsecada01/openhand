@@ -12,6 +12,10 @@ than a formal-programs-only view. All results are presented as-is.
 Skipped entirely (returns []) if no TAVILY_API_KEY is configured, or
 if a given search fails — this is supplementary, never allowed to cost
 the user their results.
+
+`search_for_question` is a separate, narrower entry point for phase-2
+feedback rounds: one extra search built from the person's own written
+follow-up, rather than the fixed per-program queries above.
 """
 
 import logging
@@ -110,6 +114,55 @@ def search_for_gaps(
                 )
             )
     return searches
+
+
+def search_for_question(
+    question: str, state: str
+) -> ResourceSearchResult | None:
+    """One targeted search for a phase-2 follow-up question.
+
+    `search_for_gaps` only ever re-runs its fixed per-program queries,
+    so a literal question typed into the post-report feedback box
+    (e.g. "what about job placement programs?") was previously
+    dropped on the floor — the regenerated report re-ran the same
+    canned searches regardless of what the person actually asked.
+    This runs one extra search using their own words instead.
+    """
+    question = question.strip()
+    if not question:
+        return None
+    try:
+        client = _get_client()
+    except TavilyNotConfiguredError:
+        return None
+
+    query = (
+        f"{question} — public benefits, social services, or assistance "
+        f"programs in {state}"
+    )
+    try:
+        with log_api_call(logger, "tavily.search", program="phase2_question"):
+            response = client.search(
+                query=query,
+                max_results=MAX_RESULTS_PER_PROGRAM,
+                search_depth="basic",
+            )
+    except Exception:
+        return None
+
+    results = [
+        ResourceLink(
+            title=r.get("title", ""),
+            url=r.get("url", ""),
+            snippet=_clean_snippet(r.get("content", "")),
+        )
+        for r in response.get("results", [])
+    ]
+    if not results:
+        return None
+    return ResourceSearchResult(
+        program_name="About your question", query=query, results=results
+    )
 
 
 def _formal_query(program_name: str, state: str) -> str:

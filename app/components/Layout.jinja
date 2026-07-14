@@ -80,6 +80,22 @@
     document.body.addEventListener("htmx:timeout", () => {
       showToast("The request timed out. Please try again.");
     });
+    // Each round is appended to the bottom of #flow, usually below
+    // the fold — without this, nothing signals that the reply
+    // arrived, especially on phones. Scroll the newly-added card's
+    // top into view instead of leaving the viewport where it was.
+    document.body.addEventListener("htmx:afterSwap", (e) => {
+      if (e.detail.target.id !== "flow") return;
+      const added = e.detail.target.lastElementChild;
+      if (!added) return;
+      const reduced = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches;
+      added.scrollIntoView({
+        behavior: reduced ? "auto" : "smooth",
+        block: "start",
+      });
+    });
   </script>
 </body>
 </html>
