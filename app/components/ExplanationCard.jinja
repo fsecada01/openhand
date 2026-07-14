@@ -1,5 +1,5 @@
 {#def explanation #}
-<div class="card bg-base-100 shadow-md mb-6">
+<div class="card bg-base-100 shadow-md mb-6 border-l-4 border-l-primary">
   <div class="card-body">
     {% if explanation.intro %}
     <p class="text-sm mb-2">{{ explanation.intro }}</p>
@@ -11,7 +11,9 @@
     </ul>
     {% endfor %}
     {% if explanation.closing %}
-    <p class="text-sm mt-4 opacity-80">{{ explanation.closing }}</p>
+    <p class="text-sm mt-4 pt-3 border-t border-base-200 opacity-80">
+      {{ explanation.closing }}
+    </p>
     {% endif %}
   </div>
 </div>

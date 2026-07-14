@@ -1,7 +1,7 @@
 {#def question, prior_narrative, round_num=1 #}
-<div class="card bg-base-100 shadow-md">
+<div class="card bg-base-100 shadow-lg border border-base-300/60">
   <div class="card-body">
-    <div class="alert alert-info">
+    <div class="alert alert-info shadow-sm">
       <span><strong>One more thing:</strong> {{ question }}</span>
     </div>
     <Form action="/screen">
@@ -9,9 +9,10 @@
              value="{{ prior_narrative }}">
       <input type="hidden" name="round_num" value="{{ round_num }}">
       <textarea name="narrative" required
-                class="textarea textarea-bordered w-full mt-3"
+                class="textarea textarea-bordered w-full mt-3
+                       focus:textarea-primary transition-colors"
                 placeholder="Your answer..."></textarea>
-      <div class="card-actions justify-between mt-3">
+      <div class="card-actions justify-between items-center mt-3">
         <button type="submit" name="finalize" value="1"
                 formnovalidate class="btn btn-ghost btn-sm">
           End here &amp; see what we have

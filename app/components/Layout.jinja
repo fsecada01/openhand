@@ -14,13 +14,30 @@
   <style>
     .spinner { display: none; }
     .htmx-request .spinner { display: inline-block; }
+
+    #results.htmx-added,
+    #results > * {
+      animation: openhand-rise 0.35s ease-out;
+    }
+    @keyframes openhand-rise {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #results.htmx-added, #results > * { animation: none; }
+    }
   </style>
 </head>
-<body class="bg-base-200 min-h-screen">
-  <div class="max-w-3xl mx-auto px-4 py-8">
-    <header class="mb-6">
-      <h1 class="text-3xl font-bold">OpenHand</h1>
-      <p class="text-sm opacity-70 mt-2">
+<body class="bg-base-200 min-h-screen flex flex-col">
+  <div class="max-w-3xl mx-auto px-4 py-10 flex-1 w-full">
+    <header class="mb-8 text-center sm:text-left">
+      <div class="inline-flex items-center gap-3">
+        <span class="flex h-11 w-11 items-center justify-center
+                      rounded-2xl bg-primary/15 text-2xl"
+              aria-hidden="true">🤲</span>
+        <h1 class="text-3xl font-bold tracking-tight">OpenHand</h1>
+      </div>
+      <p class="text-sm opacity-70 mt-3 max-w-xl mx-auto sm:mx-0">
         Describe what's going on in your own words. This tool checks
         whether public programs (SNAP, Medicaid/CHIP, Medicare, EITC)
         might help &mdash; alongside, never instead of, your local
@@ -30,6 +47,10 @@
     </header>
     <main>{{ content }}</main>
   </div>
+  <footer class="text-center text-xs opacity-50 pb-6 px-4">
+    Not a government service. Estimates only &mdash; always confirm
+    with the program itself.
+  </footer>
   <div id="toast-container" class="toast toast-top toast-end z-50">
   </div>
   <script>

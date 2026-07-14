@@ -1,5 +1,6 @@
 <Layout>
-  <Form action="/screen" class="card bg-base-100 shadow-md">
+  <Form action="/screen" class="card bg-base-100 shadow-lg
+                                 border border-base-300/60">
     <div class="card-body">
       <label class="font-semibold" for="narrative">
         What do you need help with?
@@ -13,9 +14,10 @@
         us point you to the right pathway.
       </p>
       <textarea id="narrative" name="narrative" required
-                class="textarea textarea-bordered w-full min-h-32"
+                class="textarea textarea-bordered w-full min-h-32
+                       focus:textarea-primary transition-colors"
                 placeholder="Tell us your situation..."></textarea>
-      <div class="card-actions">
+      <div class="card-actions justify-end">
         <SubmitButton />
       </div>
     </div>

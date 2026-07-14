@@ -13,29 +13,40 @@
     "likely_ineligible": "border-l-error",
     "undetermined": "border-l-neutral",
 } %}
+{% set icon_bg = {
+    "likely_eligible": "bg-success/15",
+    "possibly_eligible": "bg-warning/15",
+    "likely_ineligible": "bg-error/15",
+    "undetermined": "bg-neutral/15",
+} %}
 <div class="card bg-base-100 shadow-md border-l-4
-            {{ borders.get(d.status.value, 'border-l-neutral') }}">
-  <div class="card-body">
+            {{ borders.get(d.status.value, 'border-l-neutral') }}
+            transition-shadow hover:shadow-lg">
+  <div class="card-body p-4 sm:p-5">
     <div class="grid grid-cols-[auto_1fr] gap-3 items-start">
-      <div class="text-3xl leading-none" aria-hidden="true">
+      <div class="flex h-10 w-10 items-center justify-center
+                  rounded-full text-xl leading-none
+                  {{ icon_bg.get(d.status.value, 'bg-neutral/15') }}"
+           aria-hidden="true">
         {{ icons.get(d.program, "📋") }}
       </div>
       <div>
-        <h3 class="card-title text-base">
+        <h3 class="card-title text-base flex-wrap gap-2">
           {{ d.program_name }}
           <StatusBadge :status="d.status.value" />
         </h3>
-        <ul class="list-disc ml-5 text-sm">
+        <ul class="list-disc ml-5 text-sm space-y-0.5 mt-1">
           {% for reason in d.reasons %}<li>{{ reason }}</li>{% endfor %}
         </ul>
         {% if d.estimated_benefit %}
-        <p class="text-sm font-medium">
+        <p class="text-sm font-medium mt-1">
           Estimated benefit: {{ d.estimated_benefit }}
         </p>
         {% endif %}
       </div>
     </div>
-    <div class="card-actions items-center justify-between mt-2">
+    <div class="card-actions items-center justify-between mt-3
+                pt-3 border-t border-base-200">
       <a class="btn btn-sm btn-outline btn-primary"
          href="{{ d.apply_url }}" target="_blank" rel="noopener">
         How to apply &rarr;
