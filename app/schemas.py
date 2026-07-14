@@ -132,6 +132,33 @@ class HouseholdProfile(BaseModel):
             return self.self_employment_net_monthly
         return self.earned
 
+    def updated_with(
+        self,
+        facts: "IntakeFacts",
+        supplemental: "SupplementalFacts | None" = None,
+    ) -> "HouseholdProfile":
+        """This profile overlaid with any newly-stated facts.
+
+        Phase-2 feedback rounds extract ONLY that round's new text
+        (see the screen router), so most fields come back None. None
+        means "not mentioned this round", never "unset it" — the
+        carried value survives. Non-null values override, so a
+        correction ("actually my rent is $2,000") takes effect.
+
+        Only `IntakeFacts`/`SupplementalFacts` fields are overlaid —
+        `IntakeExtraction`'s bookkeeping fields are control flow, not
+        household facts. The result is re-validated, so a bad overlay
+        raises instead of reaching the engine.
+        """
+        updates = facts.model_dump(
+            include=set(IntakeFacts.model_fields), exclude_none=True
+        )
+        if supplemental is not None:
+            updates.update(supplemental.model_dump(exclude_none=True))
+        if "state" in updates:
+            updates["state"] = updates["state"].upper()
+        return HouseholdProfile(**{**self.model_dump(), **updates})
+
 
 class IntakeFacts(BaseModel):
     """Structured-output schema for the intake LLM call itself.

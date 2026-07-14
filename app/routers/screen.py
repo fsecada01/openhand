@@ -22,7 +22,7 @@ from app.llm.client import LLMNotConfiguredError
 from app.llm.intake import ASK_PROMPTS
 from app.logging_utils import request_id_var
 from app.models import Screening
-from app.schemas import Explanation
+from app.schemas import Explanation, HouseholdProfile, IntakeExtraction
 from app.services import disability_lookup, resource_search
 from app.ui import catalog
 
@@ -95,6 +95,60 @@ def _error_alert(message: str) -> HTMLResponse:
     )
 
 
+def _extract_or_alert(
+    narrative: str, round_num: int
+) -> tuple[IntakeExtraction | None, HTMLResponse | None]:
+    """Run the intake extraction, mapping failures to error alerts.
+
+    Returns (extraction, None) on success, (None, response) on
+    failure — shared by the gather phase (full narrative) and phase-2
+    refresh rounds (this round's new text only).
+    """
+    try:
+        return intake.extract(narrative, round_num=round_num), None
+    except (LLMNotConfiguredError, anthropic.AuthenticationError):
+        logger.exception("intake auth failure")
+        return None, _error_alert(
+            "This site isn't connected to its screening assistant "
+            "yet (missing or invalid API key). The site owner needs "
+            "to configure ANTHROPIC_API_KEY."
+        )
+    except anthropic.RateLimitError:
+        return None, _error_alert(
+            "We're handling a lot of requests right now. Please "
+            "wait a minute and try again."
+        )
+    except anthropic.APIConnectionError:
+        return None, _error_alert(
+            "We couldn't reach the screening assistant. Please try "
+            "again in a moment."
+        )
+    except Exception:
+        logger.exception("intake failed")
+        return None, _error_alert(
+            "Something went wrong reading your message. Nothing you "
+            "typed was stored — please try again, and if it keeps "
+            "happening, let us know on GitHub."
+        )
+
+
+def _parse_carried_profile(profile_json: str) -> HouseholdProfile | None:
+    """Parse the profile Results carried forward in a hidden field.
+
+    It round-trips through the browser, so it arrives as untrusted
+    input — any parse/validation failure (or an empty field, e.g. a
+    report generated before profiles were carried) just returns None
+    and the caller falls back to full re-extraction.
+    """
+    if not profile_json:
+        return None
+    try:
+        return HouseholdProfile.model_validate_json(profile_json)
+    except Exception:
+        logger.warning("carried profile failed validation; ignoring")
+        return None
+
+
 @router.get("/", response_class=HTMLResponse)
 async def index():
     return HTMLResponse(catalog.render("Home"))
@@ -126,6 +180,11 @@ async def screen(
     # gets the familiar opening phrasing regardless of how many
     # rounds it took to get there.
     confirm_round: Annotated[int, Form()] = 0,
+    # The already-extracted household profile, carried forward by
+    # Results' feedback form so phase-2 rounds only have to process
+    # this round's NEW text (see _phase2_refresh) instead of
+    # re-extracting the whole accumulated narrative every round.
+    profile_json: Annotated[str, Form()] = "",
 ):
     token = request_id_var.set(uuid.uuid4().hex[:8])
     try:
@@ -139,44 +198,37 @@ async def screen(
             )
         at_round_limit = round_num >= MAX_TOTAL_ROUNDS
 
-        try:
-            extraction = intake.extract(combined, round_num=round_num)
-        except (LLMNotConfiguredError, anthropic.AuthenticationError):
-            logger.exception("intake auth failure")
-            return _error_alert(
-                "This site isn't connected to its screening assistant "
-                "yet (missing or invalid API key). The site owner needs "
-                "to configure ANTHROPIC_API_KEY."
-            )
-        except anthropic.RateLimitError:
-            return _error_alert(
-                "We're handling a lot of requests right now. Please "
-                "wait a minute and try again."
-            )
-        except anthropic.APIConnectionError:
-            return _error_alert(
-                "We couldn't reach the screening assistant. Please try "
-                "again in a moment."
-            )
-        except Exception:
-            logger.exception("intake failed")
-            return _error_alert(
-                "Something went wrong reading your message. Nothing you "
-                "typed was stored — please try again, and if it keeps "
-                "happening, let us know on GitHub."
-            )
-
         if reported:
             # Phase 2: the gathering phase is already over and a
             # report already exists — this round is feedback/more
             # detail to refine it (and its resource search), not
             # intake, so it never goes back through Clarify/Confirm.
-            # `addition` (this round's new text, not the full
-            # accumulated narrative) also drives one extra, targeted
-            # resource search — see `_render_results` — so a literal
-            # follow-up question ("what about job placement programs
-            # in NYC?") gets an actual answer instead of silently
-            # re-running the same fixed per-program searches.
+            # Results carries the already-extracted profile forward,
+            # so only this round's NEW text needs LLM processing —
+            # and when it changes nothing, the engine, explanation,
+            # and gap searches are all skipped (see _phase2_refresh).
+            carried = _parse_carried_profile(profile_json)
+            if carried is not None:
+                return _phase2_refresh(
+                    carried,
+                    addition,
+                    combined,
+                    session,
+                    round_num=round_num,
+                    offer_feedback=not at_round_limit,
+                )
+
+        extraction, error = _extract_or_alert(combined, round_num)
+        if error is not None:
+            return error
+
+        if reported:
+            # Phase-2 fallback when no valid carried profile came
+            # back with the form (e.g. a report generated before
+            # profiles were carried forward): the legacy full
+            # re-extraction of the accumulated narrative. `addition`
+            # still drives one extra, targeted resource search so a
+            # literal follow-up question gets an actual answer.
             return _render_results(
                 combined,
                 extraction,
@@ -254,6 +306,86 @@ async def screen(
         request_id_var.reset(token)
 
 
+def _phase2_refresh(
+    carried: HouseholdProfile,
+    addition: str,
+    combined: str,
+    session: Session,
+    round_num: int,
+    offer_feedback: bool,
+) -> HTMLResponse:
+    """Phase-2 round with a carried profile: process ONLY the new text.
+
+    The initial report already extracted the full narrative into a
+    profile, which Results carries forward in a hidden field.
+    Re-extracting the whole accumulated narrative every round both
+    re-spends tokens and can silently flip already-settled facts (the
+    LLM re-reading the same words doesn't always land on the same
+    extraction). Instead, this extracts just this round's addition and
+    overlays any newly-stated facts onto the carried profile. When the
+    merged profile is identical — the addition was a question, not new
+    facts — the engine, explanation, and gap searches are all skipped
+    and only the question-driven search runs.
+    """
+    question = addition or None
+    merged = carried.model_copy()
+    if addition:
+        extraction, error = _extract_or_alert(addition, round_num)
+        if error is not None:
+            return error
+        try:
+            supplemental = supplemental_mod.extract_supplemental(addition)
+        except Exception:
+            logger.exception("supplemental extraction failed")
+            supplemental = None
+        try:
+            merged = carried.updated_with(extraction, supplemental)
+        except Exception:
+            # A bad overlay (nonsense extraction failing profile
+            # validation) must not cost the person their
+            # conversation — keep the carried profile and still
+            # answer the question.
+            logger.exception("profile overlay failed; keeping carried")
+            merged = carried.model_copy()
+
+    # The diagnosis scan is deterministic and cheap — always rerun it
+    # on the full narrative so a newly-mentioned diagnosis counts as
+    # a profile change like any other new fact.
+    merged.disability_diagnosis_match = disability_lookup.lookup(
+        session, combined
+    )
+
+    if merged == carried:
+        question_search = None
+        if question:
+            try:
+                question_search = resource_search.search_for_question(
+                    question, carried.state
+                )
+            except Exception:
+                logger.exception("question-driven resource search failed")
+        return HTMLResponse(
+            catalog.render(
+                "QuestionUpdate",
+                question=question,
+                search=question_search,
+                prior_narrative=combined,
+                profile_json=carried.model_dump_json(),
+                round_num=round_num + 1,
+                offer_feedback=offer_feedback,
+            )
+        )
+
+    return _render_report(
+        merged,
+        combined,
+        session,
+        round_num=round_num,
+        offer_feedback=offer_feedback,
+        question=question,
+    )
+
+
 def _render_results(
     combined: str,
     extraction,
@@ -262,16 +394,11 @@ def _render_results(
     offer_feedback: bool,
     question: str | None = None,
 ) -> HTMLResponse:
-    """Run the engine + explanation + resource search and render
-    Results. Shared by the initial report (end of the gather phase)
-    and every phase-2 feedback round (re-run against the accumulated
-    narrative) — see the `reported` flag in `screen()`.
+    """Extract supplemental facts, build the profile, render a report.
 
-    `question`, when given, is this round's newly-added text (phase-2
-    only) — it drives one extra, targeted resource search on top of
-    the standard per-program ones, since neither the engine, the
-    explanation pass, nor `search_for_gaps` ever look at the raw
-    narrative.
+    Used for the initial report (end of the gather phase) and the
+    legacy phase-2 fallback; phase-2 rounds with a carried profile go
+    through `_phase2_refresh` instead.
     """
     # Optional second pass (housing/utility cost, assets, disability,
     # veteran status, self-employment breakdown, ...) — never
@@ -287,6 +414,33 @@ def _render_results(
     profile.disability_diagnosis_match = disability_lookup.lookup(
         session, combined
     )
+    return _render_report(
+        profile,
+        combined,
+        session,
+        round_num=round_num,
+        offer_feedback=offer_feedback,
+        question=question,
+    )
+
+
+def _render_report(
+    profile: HouseholdProfile,
+    combined: str,
+    session: Session,
+    round_num: int,
+    offer_feedback: bool,
+    question: str | None = None,
+) -> HTMLResponse:
+    """Run the engine + explanation + resource searches and render
+    Results for an already-built profile.
+
+    `question`, when given, is this round's newly-added text (phase-2
+    only) — it drives one extra, targeted resource search on top of
+    the standard per-program ones, since neither the engine, the
+    explanation pass, nor `search_for_gaps` ever look at the raw
+    narrative.
+    """
     determinations = evaluate(profile)
 
     write_row(
@@ -333,6 +487,7 @@ def _render_results(
             determinations=determinations,
             resource_searches=resource_searches,
             prior_narrative=combined,
+            profile_json=profile.model_dump_json(),
             round_num=round_num + 1,
             offer_feedback=offer_feedback,
         )

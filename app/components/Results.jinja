@@ -1,4 +1,4 @@
-{#def explanation, determinations, resource_searches=None, prior_narrative="", round_num=1, offer_feedback=True #}
+{#def explanation, determinations, resource_searches=None, prior_narrative="", profile_json="", round_num=1, offer_feedback=True #}
 <h2 class="text-2xl font-bold mb-3 flex items-center gap-2">
   <span aria-hidden="true">✅</span> What we found
 </h2>
@@ -22,40 +22,7 @@
   these programs don't cover.
 </p>
 
-{% if offer_feedback %}
-<div class="card bg-base-100 shadow-lg border border-base-300/60 mt-6">
-  <div class="card-body">
-    <h3 class="font-semibold text-sm">Anything change, or want us to
-      look harder for local resources?</h3>
-    <p class="text-xs opacity-70">
-      Add more detail below and we'll refresh the results above and
-      search for more resources &mdash; for example, a cost you forgot
-      to mention, or a specific city/county to focus the search on.
-    </p>
-    <Form action="/screen">
-      <input type="hidden" name="prior_narrative"
-             value="{{ prior_narrative }}">
-      <input type="hidden" name="round_num" value="{{ round_num }}">
-      <input type="hidden" name="reported" value="1">
-      {# `required`: an empty "Update results" click would re-run the
-         whole pipeline (intake LLM, engine, explanation LLM, every
-         resource search) for an identical report — there's nothing
-         to update without new text, so don't allow the submit. #}
-      <textarea name="narrative" required
-                class="textarea textarea-bordered w-full mt-2
-                       focus:textarea-primary transition-colors"
-                placeholder="What should we add or look into?"></textarea>
-      <div class="card-actions justify-end mt-3">
-        <SubmitButton label="Update results" />
-      </div>
-    </Form>
-  </div>
-</div>
-{% else %}
-<div class="text-center mt-4">
-  <p class="text-xs opacity-60">
-    You've reached the maximum number of rounds for this conversation.
-  </p>
-  <a href="/" class="btn btn-outline btn-sm mt-2">Start over</a>
-</div>
-{% endif %}
+<FeedbackForm :prior_narrative="prior_narrative"
+              :round_num="round_num"
+              :profile_json="profile_json"
+              :offer_feedback="offer_feedback" />

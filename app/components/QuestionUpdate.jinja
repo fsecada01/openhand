@@ -1,0 +1,36 @@
+{#def question=None, search=None, prior_narrative="", profile_json="", round_num=1, offer_feedback=True #}
+{# Phase-2 response when the person's new text didn't change any
+   household fact (typically a question rather than an update): the
+   report above still stands, so instead of appending a duplicate of
+   it, answer the question and offer the next follow-up. #}
+<div class="card bg-base-100 shadow-md border-l-4 border-l-primary">
+  <div class="card-body">
+    <h3 class="card-title text-base">
+      <span aria-hidden="true">💬</span> Your results above still stand
+    </h3>
+    <p class="text-sm">
+      {% if search %}
+      Nothing you added changes the program screening, so we didn't
+      re-run it &mdash; but here's what a web search turned up for
+      your question.
+      {% elif question %}
+      Nothing you added changes the program screening, and we
+      couldn't run a web search for your question just now. Your
+      local
+      <a href="https://www.211.org" target="_blank" rel="noopener"
+         class="link link-primary">211 helpline</a>
+      is a good place to take it.
+      {% else %}
+      We didn't find anything new to factor in, so the report above
+      is still current.
+      {% endif %}
+    </p>
+  </div>
+</div>
+{% if search %}
+<ResourceSearchCard :resource_searches="[search]" />
+{% endif %}
+<FeedbackForm :prior_narrative="prior_narrative"
+              :round_num="round_num"
+              :profile_json="profile_json"
+              :offer_feedback="offer_feedback" />

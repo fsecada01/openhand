@@ -773,4 +773,142 @@ def test_screen_explanation_failure_keeps_results(monkeypatch):
         )
     assert resp.status_code == 200
     assert "SNAP" in resp.text
-    assert screen_router.EXPLANATION_FALLBACK.intro[:30] in resp.text
+    # the fallback intro contains an apostrophe, which autoescape
+    # renders as an entity — compare against the escaped form
+    from markupsafe import escape
+
+    assert (
+        str(escape(screen_router.EXPLANATION_FALLBACK.intro[:30])) in resp.text
+    )
+
+
+def test_screen_phase_two_unchanged_profile_skips_rerun(monkeypatch):
+    """A question that states no new facts must NOT re-run the
+    engine/explanation/gap searches — only the question search."""
+    from app.routers import screen as screen_router
+    from app.schemas import (
+        HouseholdProfile,
+        IntakeExtraction,
+        ResourceLink,
+        ResourceSearch,
+        SupplementalFacts,
+    )
+
+    seen = {}
+
+    def fake_extract(narrative, **_):
+        seen["extract_arg"] = narrative
+        return IntakeExtraction()
+
+    monkeypatch.setattr(screen_router.intake, "extract", fake_extract)
+    monkeypatch.setattr(
+        screen_router.supplemental_mod,
+        "extract_supplemental",
+        lambda n: SupplementalFacts(),
+    )
+
+    def fail(*args, **kwargs):
+        raise AssertionError("must not run when the profile is unchanged")
+
+    monkeypatch.setattr(screen_router.explain_mod, "explain", fail)
+    monkeypatch.setattr(screen_router.resource_search, "search_for_gaps", fail)
+    monkeypatch.setattr(
+        screen_router.resource_search,
+        "search_for_question",
+        lambda q, s: ResourceSearch(
+            program_name="About your question",
+            query="job programs NY",
+            results=[
+                ResourceLink(
+                    title="NY jobs help", url="https://example.com/jobs"
+                )
+            ],
+        ),
+    )
+
+    profile = HouseholdProfile(
+        state="NY", household_size=4, monthly_gross_income=12_000
+    )
+    with TestClient(app) as client:
+        resp = client.post(
+            "/screen",
+            data={
+                "narrative": "What about job placement programs in NYC?",
+                "prior_narrative": "help",
+                "round_num": 4,
+                "reported": "1",
+                "profile_json": profile.model_dump_json(),
+            },
+        )
+    assert resp.status_code == 200
+    # only this round's new text went to the LLM, not the whole
+    # accumulated narrative
+    assert seen["extract_arg"] == ("What about job placement programs in NYC?")
+    assert "still stand" in resp.text
+    assert "About your question" in resp.text
+    assert "NY jobs help" in resp.text
+    # the follow-up form keeps carrying the profile and round counter
+    assert _hidden_value(resp.text, "round_num") == "5"
+    carried = _hidden_value(resp.text, "profile_json")
+    assert carried is not None and "&#34;state&#34;:&#34;NY&#34;" in carried
+
+
+def test_screen_phase_two_new_fact_regenerates_report(monkeypatch):
+    """New facts in phase-2 overlay the carried profile and re-run the
+    full report — without re-extracting the prior narrative."""
+    from app.routers import screen as screen_router
+    from app.schemas import (
+        Explanation,
+        HouseholdProfile,
+        IntakeExtraction,
+        SupplementalFacts,
+    )
+
+    monkeypatch.setattr(
+        screen_router.intake,
+        "extract",
+        lambda n, **_: IntakeExtraction(monthly_gross_income=1_000),
+    )
+    monkeypatch.setattr(
+        screen_router.supplemental_mod,
+        "extract_supplemental",
+        lambda n: SupplementalFacts(),
+    )
+    seen = {}
+
+    def fake_explain(profile, determinations):
+        seen["profile"] = profile
+        return Explanation(intro="intro", sections=[], closing="")
+
+    monkeypatch.setattr(screen_router.explain_mod, "explain", fake_explain)
+    monkeypatch.setattr(
+        screen_router.resource_search, "search_for_gaps", lambda p, d: []
+    )
+    monkeypatch.setattr(
+        screen_router.resource_search,
+        "search_for_question",
+        lambda q, s: None,
+    )
+
+    profile = HouseholdProfile(
+        state="NY", household_size=4, monthly_gross_income=12_000
+    )
+    with TestClient(app) as client:
+        resp = client.post(
+            "/screen",
+            data={
+                "narrative": "my income dropped to $1,000 a month",
+                "prior_narrative": "help",
+                "round_num": 4,
+                "reported": "1",
+                "profile_json": profile.model_dump_json(),
+            },
+        )
+    assert resp.status_code == 200
+    assert "SNAP" in resp.text
+    # the new fact overrode the carried income; everything else the
+    # phase-2 extraction didn't mention survived from the carried
+    # profile
+    assert seen["profile"].monthly_gross_income == 1_000
+    assert seen["profile"].household_size == 4
+    assert seen["profile"].state == "NY"
