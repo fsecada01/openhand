@@ -1,18 +1,17 @@
-{#def prior_narrative, round_num=1 #}
+{#def prior_narrative, round_num=1, confirm_round=1, headline="Before we show your results", body="did we miss anything?" #}
 <div class="card bg-base-100 shadow-lg border border-base-300/60">
   <div class="card-body">
     <div class="alert alert-info shadow-sm">
       <span>
-        <strong>Before we show your results</strong> &mdash; did we
-        miss anything? For example: self-employment income, housing
-        or utility costs, savings, disability or veteran status, or
-        child/dependent care or medical costs.
+        <strong>{{ headline }}</strong> &mdash; {{ body }}
       </span>
     </div>
     <Form action="/screen">
       <input type="hidden" name="prior_narrative"
              value="{{ prior_narrative }}">
       <input type="hidden" name="round_num" value="{{ round_num }}">
+      <input type="hidden" name="confirm_round"
+             value="{{ confirm_round }}">
       <textarea name="narrative"
                 class="textarea textarea-bordered w-full mt-3
                        focus:textarea-primary transition-colors"

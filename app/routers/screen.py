@@ -30,13 +30,49 @@ router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
 logger = logging.getLogger(__name__)
 
-# Caps the back-and-forth (both the required-facts Clarify loop and
-# the post-confirm "anything else?" loop) so a person isn't stuck in
-# an endless question loop — after this many rounds (or an earlier
-# "end here"/"that's everything" click, see Clarify.jinja and
-# Confirm.jinja) we stop asking and finalize with whatever was
-# gathered.
-MAX_CLARIFY_ROUNDS = 10
+# Single round budget for the ENTIRE conversation (gathering +
+# post-report feedback combined) — after this many /screen
+# round-trips (or an earlier "end here"/"that's everything" click,
+# see Clarify.jinja and Confirm.jinja) we stop asking and finalize
+# with whatever was gathered.
+MAX_TOTAL_ROUNDS = 10
+
+# Soft target for the gathering phase (required facts + one
+# supplemental Confirm pass): by this round we proactively generate
+# the initial report even without an explicit "that's everything"
+# confirmation, so the report doesn't wait on the user closing the
+# chat. A person can still finish earlier by confirming sooner — this
+# is a ceiling, not a floor.
+SOFT_GATHER_ROUNDS = 5
+
+# Cycled by `confirm_round` (see `screen()`) so a person who clicks
+# "Add & continue" more than once doesn't see the exact same "did we
+# miss anything?" sentence verbatim every time — that reads as a
+# stuck/broken loop rather than a real back-and-forth.
+CONFIRM_PROMPTS = [
+    (
+        "Before we show your results",
+        "did we miss anything? For example: self-employment income, "
+        "housing or utility costs, savings, disability or veteran "
+        "status, or child/dependent care or medical costs.",
+    ),
+    (
+        "Thanks for that",
+        "anything else worth mentioning before we run the numbers? "
+        "Even a second job, child support, or a recent move can "
+        "matter.",
+    ),
+    (
+        "Just double-checking",
+        "is there anything else about your income, housing, health, "
+        "or family we should factor in before showing results?",
+    ),
+    (
+        "One last check",
+        "anything you'd like to add or correct before we generate "
+        "your results?",
+    ),
+]
 
 EXPLANATION_FALLBACK = Explanation(
     intro="We couldn't generate the plain-language summary just now, "
@@ -69,6 +105,18 @@ async def screen(
     round_num: Annotated[int, Form()] = 1,
     finalize: Annotated[str, Form()] = "",
     confirmed: Annotated[str, Form()] = "",
+    # Set once the initial report has been generated (see
+    # Results.jinja's feedback form) — marks every later round as
+    # phase-2 feedback/refinement rather than intake, so it re-enters
+    # here without looping back through Clarify/Confirm.
+    reported: Annotated[str, Form()] = "",
+    # How many times Confirm has already been shown in this
+    # conversation — 0 the first time (see CONFIRM_PROMPTS above).
+    # Deliberately separate from `round_num`, which also counts any
+    # Clarify rounds that preceded it, so the FIRST Confirm always
+    # gets the familiar opening phrasing regardless of how many
+    # rounds it took to get there.
+    confirm_round: Annotated[int, Form()] = 0,
 ):
     token = request_id_var.set(uuid.uuid4().hex[:8])
     try:
@@ -80,10 +128,10 @@ async def screen(
                 if combined
                 else addition
             )
-        should_finalize = bool(finalize) or round_num >= MAX_CLARIFY_ROUNDS
+        at_round_limit = round_num >= MAX_TOTAL_ROUNDS
 
         try:
-            extraction = intake.extract(combined)
+            extraction = intake.extract(combined, round_num=round_num)
         except (LLMNotConfiguredError, anthropic.AuthenticationError):
             logger.exception("intake auth failure")
             return _error_alert(
@@ -109,7 +157,27 @@ async def screen(
                 "happening, let us know on GitHub."
             )
 
-        if extraction.missing_required and not should_finalize:
+        if reported:
+            # Phase 2: the gathering phase is already over and a
+            # report already exists — this round is feedback/more
+            # detail to refine it (and its resource search), not
+            # intake, so it never goes back through Clarify/Confirm.
+            return _render_results(
+                combined,
+                extraction,
+                session,
+                round_num=round_num,
+                offer_feedback=not at_round_limit,
+            )
+
+        # Required facts (state/household_size/income) have to be in
+        # hand before any report is possible, so this loop gets the
+        # full round budget — NOT the soft gather ceiling below —
+        # only an explicit "end here" or the hard round limit cuts it
+        # short.
+        hard_finalize = bool(finalize) or at_round_limit
+
+        if extraction.missing_required and not hard_finalize:
             return HTMLResponse(
                 catalog.render(
                     "Clarify",
@@ -132,6 +200,12 @@ async def screen(
                 )
             )
 
+        # From here required facts are in hand, so the soft gather
+        # ceiling applies: generate the initial report proactively by
+        # this round even without an explicit confirmation, rather
+        # than waiting on the user to explicitly say they're done.
+        should_finalize = hard_finalize or round_num >= SOFT_GATHER_ROUNDS
+
         if not confirmed and not should_finalize:
             # Required facts are in hand, but the narrative may not
             # mention anything the optional supplemental pass looks
@@ -139,65 +213,93 @@ async def screen(
             # veteran status, ...) — give the user one chance to add
             # it before we run the engine, rather than assuming a
             # short narrative means there's nothing else.
+            headline, body = CONFIRM_PROMPTS[
+                confirm_round % len(CONFIRM_PROMPTS)
+            ]
             return HTMLResponse(
                 catalog.render(
                     "Confirm",
+                    headline=headline,
+                    body=body,
                     prior_narrative=combined,
                     round_num=round_num + 1,
+                    confirm_round=confirm_round + 1,
                 )
             )
 
-        # Optional second pass (housing/utility cost, assets, disability,
-        # veteran status, self-employment breakdown, ...) — never
-        # required, so any failure here must never cost the user their
-        # results.
-        try:
-            supplemental = supplemental_mod.extract_supplemental(combined)
-        except Exception:
-            logger.exception("supplemental extraction failed")
-            supplemental = None
-
-        profile = extraction.to_profile(supplemental)
-        profile.disability_diagnosis_match = disability_lookup.lookup(
-            session, combined
-        )
-        determinations = evaluate(profile)
-
-        write_row(
-            Screening(
-                profile=profile.model_dump(mode="json"),
-                determinations=[
-                    d.model_dump(mode="json") for d in determinations
-                ],
-                engine_version=ENGINE_VERSION,
-                narrative=combined if config.STORE_NARRATIVES else None,
-            ),
+        return _render_results(
+            combined,
+            extraction,
             session,
-        )
-
-        # The engine already decided; a summary failure must never cost
-        # the user their results.
-        try:
-            explanation = explain_mod.explain(profile, determinations)
-        except Exception:
-            logger.exception("explanation failed")
-            explanation = EXPLANATION_FALLBACK
-
-        try:
-            resource_searches = resource_search.search_for_gaps(
-                profile, determinations
-            )
-        except Exception:
-            logger.exception("resource search failed")
-            resource_searches = []
-
-        return HTMLResponse(
-            catalog.render(
-                "Results",
-                explanation=explanation,
-                determinations=determinations,
-                resource_searches=resource_searches,
-            )
+            round_num=round_num,
+            offer_feedback=not at_round_limit,
         )
     finally:
         request_id_var.reset(token)
+
+
+def _render_results(
+    combined: str,
+    extraction,
+    session: Session,
+    round_num: int,
+    offer_feedback: bool,
+) -> HTMLResponse:
+    """Run the engine + explanation + resource search and render
+    Results. Shared by the initial report (end of the gather phase)
+    and every phase-2 feedback round (re-run against the accumulated
+    narrative) — see the `reported` flag in `screen()`.
+    """
+    # Optional second pass (housing/utility cost, assets, disability,
+    # veteran status, self-employment breakdown, ...) — never
+    # required, so any failure here must never cost the user their
+    # results.
+    try:
+        supplemental = supplemental_mod.extract_supplemental(combined)
+    except Exception:
+        logger.exception("supplemental extraction failed")
+        supplemental = None
+
+    profile = extraction.to_profile(supplemental)
+    profile.disability_diagnosis_match = disability_lookup.lookup(
+        session, combined
+    )
+    determinations = evaluate(profile)
+
+    write_row(
+        Screening(
+            profile=profile.model_dump(mode="json"),
+            determinations=[d.model_dump(mode="json") for d in determinations],
+            engine_version=ENGINE_VERSION,
+            narrative=combined if config.STORE_NARRATIVES else None,
+        ),
+        session,
+    )
+
+    # The engine already decided; a summary failure must never cost
+    # the user their results.
+    try:
+        explanation = explain_mod.explain(profile, determinations)
+    except Exception:
+        logger.exception("explanation failed")
+        explanation = EXPLANATION_FALLBACK
+
+    try:
+        resource_searches = resource_search.search_for_gaps(
+            profile, determinations
+        )
+    except Exception:
+        logger.exception("resource search failed")
+        resource_searches = []
+
+    return HTMLResponse(
+        catalog.render(
+            "Results",
+            explanation=explanation,
+            determinations=determinations,
+            resource_searches=resource_searches,
+            prior_narrative=combined,
+            round_num=round_num + 1,
+            offer_feedback=offer_feedback,
+        )
+    )
