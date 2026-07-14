@@ -1,4 +1,9 @@
-FROM python:3.14-slim AS builder
+# Alpine rather than debian-slim: the slim image ships the Debian
+# package backlog (perl-base, coreutils, sqlite3, ...) whose CVEs
+# have no upstream fixes — Docker Scout flags 38 of them. The musl
+# base drops that surface entirely; every binary dep (uvloop,
+# httptools, pydantic-core, watchfiles) ships musllinux cp314 wheels.
+FROM python:3.14-alpine AS builder
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
@@ -12,10 +17,10 @@ COPY app ./app
 RUN uv sync --frozen --no-dev
 
 
-FROM python:3.14-slim
+FROM python:3.14-alpine
 WORKDIR /app
 
-RUN useradd --create-home --uid 1000 appuser \
+RUN adduser -D -u 1000 appuser \
     && mkdir -p /app/data \
     && chown -R appuser:appuser /app
 
