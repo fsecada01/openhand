@@ -15,8 +15,8 @@
     .spinner { display: none; }
     .htmx-request .spinner { display: inline-block; }
 
-    #results.htmx-added,
-    #results > * {
+    #flow.htmx-added,
+    #flow > * {
       animation: openhand-rise 0.35s ease-out;
     }
     @keyframes openhand-rise {
@@ -24,7 +24,7 @@
       to { opacity: 1; transform: translateY(0); }
     }
     @media (prefers-reduced-motion: reduce) {
-      #results.htmx-added, #results > * { animation: none; }
+      #flow.htmx-added, #flow > * { animation: none; }
     }
   </style>
 </head>

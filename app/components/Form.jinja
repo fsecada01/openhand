@@ -1,8 +1,14 @@
-{#def action="/screen", target="#results", swap="innerHTML" #}
+{#def action="/screen", target="#flow", swap="innerHTML" #}
 {# HTMX form primitive: posts to `action`, swaps the response into
    `target`, and toggles any nested `.spinner` (see SubmitButton)
    while the request is in flight. Extra attributes (class, id, ...)
-   pass through. #}
+   pass through.
+
+   `target` defaults to `#flow`, the single container that holds
+   whichever card is currently active (initial form, Clarify, Confirm,
+   Results, ...). Every round's form swaps that whole container's
+   contents, so the previous card never lingers alongside the new
+   one. #}
 <form hx-post="{{ action }}" hx-target="{{ target }}"
       hx-swap="{{ swap }}" hx-indicator="this"
       {{ attrs.render() }}>
