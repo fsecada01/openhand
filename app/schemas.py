@@ -195,15 +195,14 @@ class IntakeFacts(BaseModel):
     )
 
 
-class SupplementalFacts(BaseModel):
-    """Structured-output schema for the second, optional intake pass.
+class SupplementalHousingFacts(BaseModel):
+    """First of two supplemental structured-output schemas.
 
-    Kept flat and same-sized as `IntakeFacts` (the model already
-    proven to fit under Claude's structured-output schema complexity
-    limit) rather than added onto `IntakeFacts` itself. None of these
-    facts are ever required — they only sharpen results when
-    volunteered, so there is no `missing_required`/clarifying-question
-    bookkeeping here the way there is on `IntakeExtraction`.
+    Split from a single `SupplementalFacts` call into this plus
+    `SupplementalSelfEmploymentFacts` — two smaller sequential calls
+    instead of one call carrying all 13 fields, to reduce exposure to
+    Claude's structured-output grammar-compilation ceiling. Neither
+    half is ever required.
     """
 
     monthly_housing_cost: float | None = Field(
@@ -240,6 +239,14 @@ class SupplementalFacts(BaseModel):
         description="Monthly out-of-pocket medical expenses for an "
         "elderly or disabled household member.",
     )
+
+
+class SupplementalSelfEmploymentFacts(BaseModel):
+    """Second of two supplemental structured-output schemas.
+
+    See `SupplementalHousingFacts` for why this is a separate call.
+    """
+
     is_self_employed: bool | None = Field(
         default=None,
         description="True if the person's income comes from their "
@@ -270,6 +277,20 @@ class SupplementalFacts(BaseModel):
         description="Monthly K-1 profit distributions from an "
         "S-Corp, separate from W-2 wages.",
     )
+
+
+class SupplementalFacts(
+    SupplementalHousingFacts, SupplementalSelfEmploymentFacts
+):
+    """Combined supplemental facts, merged from two extraction calls.
+
+    `app.llm.supplemental.extract_supplemental` runs the housing and
+    self-employment schemas as two separate `messages.parse` calls and
+    merges the results into this type, which is what the rest of the
+    app (routers, `HouseholdProfile.to_profile`, tests) still consumes
+    — the two-call split is an internal detail of the extraction step,
+    not a change to callers' contract.
+    """
 
 
 class IntakeExtraction(IntakeFacts):

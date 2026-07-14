@@ -1,16 +1,29 @@
 """Second intake pass: optional facts that sharpen (never gate) results.
 
-Kept as its own structured-output call, separate from `app.llm.intake`,
-because `IntakeFacts` already sits right at Claude's schema complexity
-limit (see its docstring) — a second flat model gets a fresh budget
-instead of pushing the first one over. Nothing here is required: a
-failed or empty extraction just means the engine falls back to its
-existing, coarser behavior.
+Kept separate from `app.llm.intake`, because `IntakeFacts` already
+sits right at Claude's schema complexity limit (see its docstring) —
+a second pass gets a fresh budget instead of pushing the first one
+over. Split into two smaller sequential structured-output calls
+(`SupplementalHousingFacts`, `SupplementalSelfEmploymentFacts`)
+rather than one 13-field call, after repeated grammar-compilation
+failures (400 timeout, 400 too-complex, 503 overloaded_error) on the
+single combined schema. Nothing here is required: a failed or empty
+extraction just means the engine falls back to its existing, coarser
+behavior — and a failure in one half no longer costs the other half.
 """
+
+import logging
 
 from app import config
 from app.llm.client import get_client, thinking_kwargs
-from app.schemas import SupplementalFacts
+from app.logging_utils import log_api_call
+from app.schemas import (
+    SupplementalFacts,
+    SupplementalHousingFacts,
+    SupplementalSelfEmploymentFacts,
+)
+
+logger = logging.getLogger(__name__)
 
 MAX_TOKENS = 4096
 
@@ -35,12 +48,39 @@ Rules:
 
 def extract_supplemental(narrative: str) -> SupplementalFacts:
     client = get_client()
-    response = client.messages.parse(
-        model=config.ANTHROPIC_MODEL,
-        max_tokens=MAX_TOKENS,
-        system=SYSTEM,
-        messages=[{"role": "user", "content": narrative}],
-        output_format=SupplementalFacts,
-        **thinking_kwargs(config.ANTHROPIC_MODEL, MAX_TOKENS),
+    housing = _extract_one(
+        client,
+        narrative,
+        SupplementalHousingFacts,
+        "anthropic.supplemental_housing",
     )
-    return response.parsed_output
+    self_employment = _extract_one(
+        client,
+        narrative,
+        SupplementalSelfEmploymentFacts,
+        "anthropic.supplemental_self_employment",
+    )
+    return SupplementalFacts(
+        **housing.model_dump(), **self_employment.model_dump()
+    )
+
+
+def _extract_one(client, narrative: str, schema: type, service: str):
+    """Run one structured-output pass; degrade to an empty schema on failure.
+
+    Each half is independent — an overload or compilation failure on
+    one pass must not cost the other half its facts.
+    """
+    try:
+        with log_api_call(logger, service, model=config.ANTHROPIC_MODEL):
+            response = client.messages.parse(
+                model=config.ANTHROPIC_MODEL,
+                max_tokens=MAX_TOKENS,
+                system=SYSTEM,
+                messages=[{"role": "user", "content": narrative}],
+                output_format=schema,
+                **thinking_kwargs(config.ANTHROPIC_MODEL, MAX_TOKENS),
+            )
+        return response.parsed_output
+    except Exception:
+        return schema()

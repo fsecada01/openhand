@@ -8,10 +8,14 @@ can render real headings/lists instead of parsing markdown-in-text.
 """
 
 import json
+import logging
 
 from app import config
 from app.llm.client import get_client
+from app.logging_utils import log_api_call
 from app.schemas import Determination, Explanation, HouseholdProfile
+
+logger = logging.getLogger(__name__)
 
 SYSTEM = """\
 You turn benefit-screening results into a short, warm summary for the
@@ -44,17 +48,20 @@ def explain(
         "determinations": [d.model_dump(mode="json") for d in determinations],
     }
     client = get_client()
-    response = client.messages.parse(
-        model=config.ANTHROPIC_EXPLAIN_MODEL,
-        max_tokens=4096,
-        system=SYSTEM,
-        messages=[
-            {
-                "role": "user",
-                "content": "Screening results to explain:\n"
-                + json.dumps(payload, indent=2),
-            }
-        ],
-        output_format=Explanation,
-    )
+    with log_api_call(
+        logger, "anthropic.explain", model=config.ANTHROPIC_EXPLAIN_MODEL
+    ):
+        response = client.messages.parse(
+            model=config.ANTHROPIC_EXPLAIN_MODEL,
+            max_tokens=4096,
+            system=SYSTEM,
+            messages=[
+                {
+                    "role": "user",
+                    "content": "Screening results to explain:\n"
+                    + json.dumps(payload, indent=2),
+                }
+            ],
+            output_format=Explanation,
+        )
     return response.parsed_output

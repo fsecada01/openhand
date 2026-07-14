@@ -197,9 +197,30 @@ def test_screen_supplemental_extraction_failure_keeps_results(monkeypatch):
         screen_router.resource_search, "search_for_gaps", lambda p, d: []
     )
     with TestClient(app) as client:
-        resp = client.post("/screen", data={"narrative": "help"})
+        resp = client.post(
+            "/screen", data={"narrative": "help", "confirmed": "1"}
+        )
     assert resp.status_code == 200
     assert "SNAP" in resp.text
+
+
+def test_screen_complete_facts_shows_confirm_before_results(monkeypatch):
+    from app.routers import screen as screen_router
+    from app.schemas import IntakeExtraction
+
+    monkeypatch.setattr(
+        screen_router.intake,
+        "extract",
+        lambda n: IntakeExtraction(
+            state="OH", household_size=3, monthly_gross_income=2000
+        ),
+    )
+    with TestClient(app) as client:
+        resp = client.post("/screen", data={"narrative": "help"})
+    assert resp.status_code == 200
+    assert "did we" in resp.text.lower()
+    assert 'name="confirmed" value="1"' in resp.text
+    assert "SNAP" not in resp.text
 
 
 def test_screen_supplemental_facts_merge_affects_engine_result(monkeypatch):
@@ -229,7 +250,9 @@ def test_screen_supplemental_facts_merge_affects_engine_result(monkeypatch):
         screen_router.resource_search, "search_for_gaps", lambda p, d: []
     )
     with TestClient(app) as client:
-        resp = client.post("/screen", data={"narrative": "help"})
+        resp = client.post(
+            "/screen", data={"narrative": "help", "confirmed": "1"}
+        )
     assert resp.status_code == 200
     assert "asset" in resp.text.lower()
 
@@ -259,7 +282,9 @@ def test_screen_explanation_failure_keeps_results(monkeypatch):
         screen_router.resource_search, "search_for_gaps", lambda p, d: []
     )
     with TestClient(app) as client:
-        resp = client.post("/screen", data={"narrative": "help"})
+        resp = client.post(
+            "/screen", data={"narrative": "help", "confirmed": "1"}
+        )
     assert resp.status_code == 200
     assert "SNAP" in resp.text
     assert screen_router.EXPLANATION_FALLBACK.intro[:30] in resp.text

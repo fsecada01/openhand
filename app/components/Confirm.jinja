@@ -1,0 +1,29 @@
+{#def prior_narrative, round_num=1 #}
+<div class="card bg-base-100 shadow-lg border border-base-300/60">
+  <div class="card-body">
+    <div class="alert alert-info shadow-sm">
+      <span>
+        <strong>Before we show your results</strong> &mdash; did we
+        miss anything? For example: self-employment income, housing
+        or utility costs, savings, disability or veteran status, or
+        child/dependent care or medical costs.
+      </span>
+    </div>
+    <Form action="/screen">
+      <input type="hidden" name="prior_narrative"
+             value="{{ prior_narrative }}">
+      <input type="hidden" name="round_num" value="{{ round_num }}">
+      <input type="hidden" name="confirmed" value="1">
+      <textarea name="narrative"
+                class="textarea textarea-bordered w-full mt-3
+                       focus:textarea-primary transition-colors"
+                placeholder="Anything to add? (optional)"></textarea>
+      <div class="card-actions justify-between items-center mt-3">
+        <button type="submit" class="btn btn-ghost btn-sm">
+          No, that's everything &mdash; show my results
+        </button>
+        <SubmitButton label="Add &amp; continue" />
+      </div>
+    </Form>
+  </div>
+</div>

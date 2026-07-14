@@ -18,6 +18,7 @@ from functools import lru_cache
 from tavily import TavilyClient
 
 from app import config
+from app.logging_utils import log_api_call
 from app.schemas import Determination, HouseholdProfile, ResourceLink, Status
 from app.schemas import ResourceSearch as ResourceSearchResult
 
@@ -76,13 +77,13 @@ def search_for_gaps(
     searches: list[ResourceSearchResult] = []
     for program_name, query in queries:
         try:
-            response = client.search(
-                query=query,
-                max_results=MAX_RESULTS_PER_PROGRAM,
-                search_depth="basic",
-            )
+            with log_api_call(logger, "tavily.search", program=program_name):
+                response = client.search(
+                    query=query,
+                    max_results=MAX_RESULTS_PER_PROGRAM,
+                    search_depth="basic",
+                )
         except Exception:
-            logger.exception("tavily search failed for %s", program_name)
             continue
         results = [
             ResourceLink(

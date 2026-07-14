@@ -6,9 +6,14 @@ missing required facts come back as `missing_required` plus one
 clarifying question, which the UI relays to the user.
 """
 
+import logging
+
 from app import config
 from app.llm.client import get_client, thinking_kwargs
+from app.logging_utils import log_api_call
 from app.schemas import REQUIRED_FIELDS, IntakeExtraction, IntakeFacts
+
+logger = logging.getLogger(__name__)
 
 MAX_TOKENS = 4096
 
@@ -33,14 +38,15 @@ Rules:
 
 def extract(narrative: str) -> IntakeExtraction:
     client = get_client()
-    response = client.messages.parse(
-        model=config.ANTHROPIC_MODEL,
-        max_tokens=MAX_TOKENS,
-        system=SYSTEM,
-        messages=[{"role": "user", "content": narrative}],
-        output_format=IntakeFacts,
-        **thinking_kwargs(config.ANTHROPIC_MODEL, MAX_TOKENS),
-    )
+    with log_api_call(logger, "anthropic.intake", model=config.ANTHROPIC_MODEL):
+        response = client.messages.parse(
+            model=config.ANTHROPIC_MODEL,
+            max_tokens=MAX_TOKENS,
+            system=SYSTEM,
+            messages=[{"role": "user", "content": narrative}],
+            output_format=IntakeFacts,
+            **thinking_kwargs(config.ANTHROPIC_MODEL, MAX_TOKENS),
+        )
     facts: IntakeFacts = response.parsed_output
     # What's missing, and the question to ask, are decided in Python
     # (not by the model) — see IntakeFacts' docstring for why.

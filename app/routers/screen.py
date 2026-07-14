@@ -1,6 +1,7 @@
 """Server-rendered screening flow (JinjaX components + HTMX)."""
 
 import logging
+import uuid
 from typing import Annotated
 
 import anthropic
@@ -19,6 +20,7 @@ from app.llm import intake
 from app.llm import supplemental as supplemental_mod
 from app.llm.client import LLMNotConfiguredError
 from app.llm.intake import ASK_PROMPTS
+from app.logging_utils import request_id_var
 from app.models import Screening
 from app.schemas import Explanation
 from app.services import disability_lookup, resource_search
@@ -65,111 +67,136 @@ async def screen(
     prior_narrative: Annotated[str, Form()] = "",
     round_num: Annotated[int, Form()] = 1,
     finalize: Annotated[str, Form()] = "",
+    confirmed: Annotated[str, Form()] = "",
 ):
-    addition = narrative.strip()
-    combined = prior_narrative.strip()
-    if addition:
-        combined = (
-            f"{combined}\n\nAdditional info: {addition}"
-            if combined
-            else addition
-        )
-    should_finalize = bool(finalize) or round_num >= MAX_CLARIFY_ROUNDS
-
+    token = request_id_var.set(uuid.uuid4().hex[:8])
     try:
-        extraction = intake.extract(combined)
-    except (LLMNotConfiguredError, anthropic.AuthenticationError):
-        logger.exception("intake auth failure")
-        return _error_alert(
-            "This site isn't connected to its screening assistant "
-            "yet (missing or invalid API key). The site owner needs "
-            "to configure ANTHROPIC_API_KEY."
+        addition = narrative.strip()
+        combined = prior_narrative.strip()
+        if addition:
+            combined = (
+                f"{combined}\n\nAdditional info: {addition}"
+                if combined
+                else addition
+            )
+        should_finalize = bool(finalize) or round_num >= MAX_CLARIFY_ROUNDS
+
+        try:
+            extraction = intake.extract(combined)
+        except (LLMNotConfiguredError, anthropic.AuthenticationError):
+            logger.exception("intake auth failure")
+            return _error_alert(
+                "This site isn't connected to its screening assistant "
+                "yet (missing or invalid API key). The site owner needs "
+                "to configure ANTHROPIC_API_KEY."
+            )
+        except anthropic.RateLimitError:
+            return _error_alert(
+                "We're handling a lot of requests right now. Please "
+                "wait a minute and try again."
+            )
+        except anthropic.APIConnectionError:
+            return _error_alert(
+                "We couldn't reach the screening assistant. Please try "
+                "again in a moment."
+            )
+        except Exception:
+            logger.exception("intake failed")
+            return _error_alert(
+                "Something went wrong reading your message. Nothing you "
+                "typed was stored — please try again, and if it keeps "
+                "happening, let us know on GitHub."
+            )
+
+        if extraction.missing_required and not should_finalize:
+            return HTMLResponse(
+                catalog.render(
+                    "Clarify",
+                    question=extraction.clarifying_question,
+                    prior_narrative=combined,
+                    round_num=round_num + 1,
+                )
+            )
+
+        if extraction.missing_required:
+            # Round limit hit, or the user clicked "end here", and we
+            # still don't have enough to run the deterministic engine
+            # safely — finalize with what we know instead of guessing.
+            return HTMLResponse(
+                catalog.render(
+                    "IncompleteResults",
+                    missing=[
+                        ASK_PROMPTS[f] for f in extraction.missing_required
+                    ],
+                )
+            )
+
+        if not confirmed and not should_finalize:
+            # Required facts are in hand, but the narrative may not
+            # mention anything the optional supplemental pass looks
+            # for (housing costs, self-employment, disability,
+            # veteran status, ...) — give the user one chance to add
+            # it before we run the engine, rather than assuming a
+            # short narrative means there's nothing else.
+            return HTMLResponse(
+                catalog.render(
+                    "Confirm",
+                    prior_narrative=combined,
+                    round_num=round_num + 1,
+                )
+            )
+
+        # Optional second pass (housing/utility cost, assets, disability,
+        # veteran status, self-employment breakdown, ...) — never
+        # required, so any failure here must never cost the user their
+        # results.
+        try:
+            supplemental = supplemental_mod.extract_supplemental(combined)
+        except Exception:
+            logger.exception("supplemental extraction failed")
+            supplemental = None
+
+        profile = extraction.to_profile(supplemental)
+        profile.disability_diagnosis_match = disability_lookup.lookup(
+            session, combined
         )
-    except anthropic.RateLimitError:
-        return _error_alert(
-            "We're handling a lot of requests right now. Please "
-            "wait a minute and try again."
-        )
-    except anthropic.APIConnectionError:
-        return _error_alert(
-            "We couldn't reach the screening assistant. Please try "
-            "again in a moment."
-        )
-    except Exception:
-        logger.exception("intake failed")
-        return _error_alert(
-            "Something went wrong reading your message. Nothing you "
-            "typed was stored — please try again, and if it keeps "
-            "happening, let us know on GitHub."
+        determinations = evaluate(profile)
+
+        write_row(
+            Screening(
+                profile=profile.model_dump(mode="json"),
+                determinations=[
+                    d.model_dump(mode="json") for d in determinations
+                ],
+                engine_version=ENGINE_VERSION,
+                narrative=combined if config.STORE_NARRATIVES else None,
+            ),
+            session,
         )
 
-    if extraction.missing_required and not should_finalize:
+        # The engine already decided; a summary failure must never cost
+        # the user their results.
+        try:
+            explanation = explain_mod.explain(profile, determinations)
+        except Exception:
+            logger.exception("explanation failed")
+            explanation = EXPLANATION_FALLBACK
+
+        try:
+            resource_searches = resource_search.search_for_gaps(
+                profile, determinations
+            )
+        except Exception:
+            logger.exception("resource search failed")
+            resource_searches = []
+
         return HTMLResponse(
             catalog.render(
-                "Clarify",
-                question=extraction.clarifying_question,
-                prior_narrative=combined,
-                round_num=round_num + 1,
+                "Results",
+                explanation=explanation,
+                determinations=determinations,
+                resource_searches=resource_searches,
             )
         )
-
-    if extraction.missing_required:
-        # Round limit hit, or the user clicked "end here", and we
-        # still don't have enough to run the deterministic engine
-        # safely — finalize with what we know instead of guessing.
-        return HTMLResponse(
-            catalog.render(
-                "IncompleteResults",
-                missing=[ASK_PROMPTS[f] for f in extraction.missing_required],
-            )
-        )
-
-    # Optional second pass (housing/utility cost, assets, disability,
-    # veteran status, self-employment breakdown, ...) — never required,
-    # so any failure here must never cost the user their results.
-    try:
-        supplemental = supplemental_mod.extract_supplemental(combined)
-    except Exception:
-        logger.exception("supplemental extraction failed")
-        supplemental = None
-
-    profile = extraction.to_profile(supplemental)
-    profile.disability_diagnosis_match = disability_lookup.lookup(
-        session, combined
-    )
-    determinations = evaluate(profile)
-
-    write_row(
-        Screening(
-            profile=profile.model_dump(mode="json"),
-            determinations=[d.model_dump(mode="json") for d in determinations],
-            engine_version=ENGINE_VERSION,
-            narrative=combined if config.STORE_NARRATIVES else None,
-        ),
-        session,
-    )
-
-    # The engine already decided; a summary failure must never cost
-    # the user their results.
-    try:
-        explanation = explain_mod.explain(profile, determinations)
-    except Exception:
-        logger.exception("explanation failed")
-        explanation = EXPLANATION_FALLBACK
-
-    try:
-        resource_searches = resource_search.search_for_gaps(
-            profile, determinations
-        )
-    except Exception:
-        logger.exception("resource search failed")
-        resource_searches = []
-
-    return HTMLResponse(
-        catalog.render(
-            "Results",
-            explanation=explanation,
-            determinations=determinations,
-            resource_searches=resource_searches,
-        )
-    )
+    finally:
+        request_id_var.reset(token)

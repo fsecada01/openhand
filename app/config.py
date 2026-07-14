@@ -38,3 +38,8 @@ TAVILY_API_KEY: SecretStr = SecretStr(config("TAVILY_API_KEY", default=""))
 STORE_NARRATIVES: bool = config("STORE_NARRATIVES", default=False, cast=bool)
 
 RATE_LIMIT_SCREEN: str = config("RATE_LIMIT_SCREEN", default="10/minute")
+
+# Controls verbosity of app.* loggers (see app.logging_config). INFO
+# surfaces one line per external API call (Anthropic/Tavily) with
+# timing and outcome — no narrative content — for traceability.
+LOG_LEVEL: str = config("LOG_LEVEL", default="INFO")
