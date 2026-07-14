@@ -24,6 +24,15 @@ def test_index_renders():
     assert "hx-post" in resp.text
 
 
+def test_about_page_renders():
+    with TestClient(app) as client:
+        resp = client.get("/about")
+    assert resp.status_code == 200
+    assert "never gets a vote on your results" in resp.text
+    assert "no user accounts" in resp.text.lower()
+    assert "anthropic" in resp.text.lower()
+
+
 def test_evaluate_endpoint_is_deterministic():
     payload = {
         "state": "TX",

@@ -154,6 +154,11 @@ async def index():
     return HTMLResponse(catalog.render("Home"))
 
 
+@router.get("/about", response_class=HTMLResponse)
+async def about():
+    return HTMLResponse(catalog.render("About"))
+
+
 @router.post("/screen", response_class=HTMLResponse)
 @limiter.limit(config.RATE_LIMIT_SCREEN)
 async def screen(

@@ -1,0 +1,99 @@
+<Layout title="About &mdash; OpenHand">
+  <article class="space-y-10">
+    <div>
+      <h1 class="font-display text-3xl sm:text-4xl font-semibold
+                 leading-tight tracking-tight">
+        A rules engine decides. The AI just explains.
+      </h1>
+      <p class="text-base opacity-75 mt-4 max-w-xl">
+        A language model reads what you type. A rules engine &mdash;
+        the same kind of logic real eligibility screeners use &mdash;
+        decides what you qualify for. The model never gets a vote on your results; it only translates the outcome into plain English.
+      </p>
+    </div>
+
+    <div class="grid sm:grid-cols-3 gap-4">
+      <div class="card bg-base-100 shadow-lg border border-base-300/60">
+        <div class="card-body items-center text-center p-5">
+          <span class="text-3xl" aria-hidden="true">🗣️</span>
+          <p class="font-semibold mt-2">You describe it</p>
+          <p class="text-xs opacity-70 mt-1">No forms, no account</p>
+        </div>
+      </div>
+      <div class="card bg-base-100 shadow-lg border border-base-300/60">
+        <div class="card-body items-center text-center p-5">
+          <span class="text-3xl" aria-hidden="true">⚖️</span>
+          <p class="font-semibold mt-2">A rules engine decides</p>
+          <p class="text-xs opacity-70 mt-1">
+            Same rules real screeners use
+          </p>
+        </div>
+      </div>
+      <div class="card bg-base-100 shadow-lg border border-base-300/60">
+        <div class="card-body items-center text-center p-5">
+          <span class="text-3xl" aria-hidden="true">💬</span>
+          <p class="font-semibold mt-2">Plain-language answer</p>
+          <p class="text-xs opacity-70 mt-1">
+            What to apply for, where, what to bring
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h2 class="font-display text-2xl font-semibold">
+        Where this came from
+      </h2>
+      <p class="text-base opacity-75 mt-3 max-w-xl">
+        OpenHand grew out of watching real mutual aid requests and
+        noticing how often what people were asking their community
+        for was something a government program was already meant to
+        cover.
+      </p>
+    </div>
+
+    <div>
+      <h2 class="font-display text-2xl font-semibold">
+        Alongside mutual aid, not instead of it
+      </h2>
+      <p class="text-base opacity-75 mt-3 max-w-xl">
+        Mutual aid networks already do real-time, peer-to-peer triage
+        faster than any government form ever will. OpenHand doesn't
+        replace that &mdash; it routes what a formal program already
+        owes someone so a community's capacity can go toward the gaps
+        formal systems don't reach.
+      </p>
+    </div>
+
+    <div>
+      <h2 class="font-display text-2xl font-semibold">
+        What's collected, and where it goes
+      </h2>
+      <p class="text-base opacity-75 mt-3 max-w-xl">
+        OpenHand isn't trying to find out who you are &mdash; just
+        what you need. There are no user accounts, so there's nothing
+        tied to you to look up or lose. In normal operation, the only
+        thing saved is a structured record of the situation you
+        described (household size, income, what you're facing) and
+        what you qualified for &mdash; never your name, address, or
+        payment details. That record lives in a plain database we run
+        ourselves, not a third-party cloud data warehouse. If it were
+        wiped tomorrow, nothing about your access to OpenHand would
+        change, because there's no account to lose.
+      </p>
+      <p class="text-base opacity-75 mt-3 max-w-xl">
+        To understand your situation and turn the results into plain
+        language, OpenHand sends what you type to Anthropic's Claude
+        models. Claude reads and explains &mdash; it never decides
+        what you qualify for; that's the rules engine's job.
+      </p>
+    </div>
+
+    <div>
+      <a href="/" class="btn btn-primary">
+        Check what you qualify for
+        <span aria-hidden="true">&rarr;</span>
+      </a>
+    </div>
+  </article>
+</Layout>
