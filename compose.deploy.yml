@@ -1,0 +1,25 @@
+# Deploy compose for the Komodo stack (see docker-compose.yml for
+# local builds). Runs the CI-published Docker Hub image; Komodo
+# writes the stack's environment block to stack.env alongside this
+# file at deploy time.
+services:
+  openhand:
+    image: fsecada01/openhand:latest
+    container_name: openhand
+    restart: unless-stopped
+    ports:
+      - "8010:8000"
+    env_file:
+      - stack.env
+    environment:
+      # Registrator registers the published port under this name in
+      # Consul, which Traefik's defaultRule turns into
+      # openhand.francissecada.com.
+      SERVICE_NAME: openhand
+      DATABASE_URL: sqlite:////app/data/openhand.db
+      SQL_DIALECT: sqlite
+    volumes:
+      - openhand_data:/app/data
+
+volumes:
+  openhand_data:
