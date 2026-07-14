@@ -13,13 +13,13 @@
       <input type="hidden" name="prior_narrative"
              value="{{ prior_narrative }}">
       <input type="hidden" name="round_num" value="{{ round_num }}">
-      <input type="hidden" name="confirmed" value="1">
       <textarea name="narrative"
                 class="textarea textarea-bordered w-full mt-3
                        focus:textarea-primary transition-colors"
                 placeholder="Anything to add? (optional)"></textarea>
       <div class="card-actions justify-between items-center mt-3">
-        <button type="submit" class="btn btn-ghost btn-sm">
+        <button type="submit" name="confirmed" value="1" formnovalidate
+                class="btn btn-ghost btn-sm">
           No, that's everything &mdash; show my results
         </button>
         <SubmitButton label="Add &amp; continue" />

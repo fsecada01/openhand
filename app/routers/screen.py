@@ -30,11 +30,12 @@ router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
 logger = logging.getLogger(__name__)
 
-# Caps the intake back-and-forth so a person who can't (or won't)
-# supply the required facts isn't stuck in an endless clarifying-
-# question loop — after this many rounds (or an earlier "end here"
-# click, see Clarify.jinja) we stop asking and finalize with whatever
-# was gathered.
+# Caps the back-and-forth (both the required-facts Clarify loop and
+# the post-confirm "anything else?" loop) so a person isn't stuck in
+# an endless question loop — after this many rounds (or an earlier
+# "end here"/"that's everything" click, see Clarify.jinja and
+# Confirm.jinja) we stop asking and finalize with whatever was
+# gathered.
 MAX_CLARIFY_ROUNDS = 10
 
 EXPLANATION_FALLBACK = Explanation(

@@ -223,6 +223,76 @@ def test_screen_complete_facts_shows_confirm_before_results(monkeypatch):
     assert "SNAP" not in resp.text
 
 
+def test_screen_adding_details_at_confirm_loops_back_for_more(monkeypatch):
+    from app.routers import screen as screen_router
+    from app.schemas import IntakeExtraction
+
+    monkeypatch.setattr(
+        screen_router.intake,
+        "extract",
+        lambda n: IntakeExtraction(
+            state="OH", household_size=3, monthly_gross_income=2000
+        ),
+    )
+    with TestClient(app) as client:
+        # "Add & continue" does NOT submit confirmed=1 — the handler
+        # should show Confirm again (round 3), not jump to results,
+        # so a person can add more than once within the round budget.
+        resp = client.post(
+            "/screen",
+            data={
+                "narrative": "I also have $500/mo in rent",
+                "prior_narrative": "help",
+                "round_num": 2,
+            },
+        )
+    assert resp.status_code == 200
+    assert "did we" in resp.text.lower()
+    assert 'name="round_num" value="3"' in resp.text
+    assert "SNAP" not in resp.text
+
+
+def test_screen_confirm_finalizes_at_round_limit(monkeypatch):
+    from app.routers import screen as screen_router
+    from app.schemas import Explanation, IntakeExtraction, SupplementalFacts
+
+    monkeypatch.setattr(
+        screen_router.intake,
+        "extract",
+        lambda n: IntakeExtraction(
+            state="OH", household_size=3, monthly_gross_income=2000
+        ),
+    )
+    monkeypatch.setattr(
+        screen_router.supplemental_mod,
+        "extract_supplemental",
+        lambda n: SupplementalFacts(),
+    )
+    monkeypatch.setattr(
+        screen_router.explain_mod,
+        "explain",
+        lambda profile, determinations: Explanation(
+            intro="intro", sections=[], closing=""
+        ),
+    )
+    monkeypatch.setattr(
+        screen_router.resource_search, "search_for_gaps", lambda p, d: []
+    )
+    with TestClient(app) as client:
+        # Still adding details, but the round cap is hit — finalize
+        # with what we have instead of looping forever.
+        resp = client.post(
+            "/screen",
+            data={
+                "narrative": "one more thing",
+                "prior_narrative": "help",
+                "round_num": screen_router.MAX_CLARIFY_ROUNDS,
+            },
+        )
+    assert resp.status_code == 200
+    assert "SNAP" in resp.text
+
+
 def test_screen_supplemental_facts_merge_affects_engine_result(monkeypatch):
     from app.routers import screen as screen_router
     from app.schemas import Explanation, IntakeExtraction, SupplementalFacts
