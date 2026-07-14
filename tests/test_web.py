@@ -401,7 +401,7 @@ def test_screen_missing_facts_keep_asking_past_soft_gather_ceiling(
             },
         )
     assert resp.status_code == 200
-    assert "one more thing" in resp.text.lower()
+    assert "one quick question" in resp.text.lower()
     assert "Start over" not in resp.text
 
 

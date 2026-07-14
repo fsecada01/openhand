@@ -1,0 +1,155 @@
+{#def determinations #}
+{# The handoff slip — the one thing a person should walk away with.
+   Strong matches first, then worth-applying, each as a numbered
+   step with its application link and what to have ready. The
+   numbering is real prioritization (apply to the strongest match
+   first), not decoration. Deterministic: built entirely from the
+   engine's determinations, no LLM involved. #}
+{% set docs = {
+    "snap": [
+        "Photo ID",
+        "Proof of income (pay stubs or award letters)",
+        "Rent or mortgage amount + a utility bill",
+        "Names and birthdates of everyone in your home",
+    ],
+    "medicaid_adult": [
+        "Photo ID and proof you live in your state",
+        "Proof of income",
+        "Birthdates and Social Security numbers for those applying",
+    ],
+    "medicaid_chip_children": [
+        "Photo ID and proof you live in your state",
+        "Proof of income",
+        "Your kids' birthdates and Social Security numbers",
+    ],
+    "medicaid_pregnant": [
+        "Photo ID and proof you live in your state",
+        "Proof of income",
+        "Proof of pregnancy if you have it (a doctor's note works)",
+    ],
+    "medicare_disability": [
+        "Your SSDI award letter",
+        "Photo ID",
+    ],
+    "eitc": [
+        "W-2s or 1099s from any work this year",
+        "Social Security numbers for you and your kids",
+        "Tip: file free at irs.gov/freefile or a local VITA site",
+    ],
+} %}
+{% set strong = determinations
+   | selectattr("status.value", "equalto", "likely_eligible") | list %}
+{% set worth = determinations
+   | selectattr("status.value", "equalto", "possibly_eligible") | list %}
+<div class="card bg-base-100 shadow-lg mb-6 border-t-4 border-dashed
+            border-t-primary">
+  <div class="card-body">
+    <div class="flex flex-wrap items-baseline justify-between gap-2">
+      <h2 class="font-display text-2xl font-semibold">
+        Your next steps
+      </h2>
+      <span class="text-xs opacity-60">Keep this &mdash; print it
+        or screenshot it.</span>
+    </div>
+
+    {% if strong or worth %}
+    <ol class="mt-3 space-y-4">
+      {% for d in strong + worth %}
+      <li class="grid grid-cols-[auto_1fr] gap-3">
+        {# Body font here, not Fraunces — its oldstyle figures hang
+           below the baseline and read as lowercase inside circles.
+           Circle color mirrors the status badge: spruce = strong
+           match, marigold = worth applying. #}
+        <span class="flex h-8 w-8 items-center justify-center
+                     rounded-full font-bold
+                     {{ 'bg-primary text-primary-content'
+                        if d.status.value == 'likely_eligible'
+                        else 'bg-accent text-accent-content' }}"
+              aria-hidden="true">{{ loop.index }}</span>
+        <div>
+          <p class="font-semibold leading-snug">
+            {{ "Apply for" if d.status.value == "likely_eligible"
+               else "Check" }} {{ d.program_name }}
+            {% if d.estimated_benefit %}
+            <span class="font-normal text-sm opacity-70">
+              &mdash; {{ d.estimated_benefit }}</span>
+            {% endif %}
+          </p>
+          {% if docs.get(d.program) %}
+          <p class="text-sm opacity-75 mt-0.5">
+            Have ready: {{ docs[d.program] | join(" · ") }}
+          </p>
+          {% endif %}
+          <a href="{{ d.apply_url }}" target="_blank" rel="noopener"
+             class="btn btn-sm mt-2
+                    {{ 'btn-primary'
+                       if d.status.value == 'likely_eligible'
+                       else 'btn-outline btn-primary' }}">
+            Start the application
+            <span aria-hidden="true">&nearr;</span>
+          </a>
+        </div>
+      </li>
+      {% endfor %}
+      <li class="grid grid-cols-[auto_1fr] gap-3">
+        <span class="flex h-8 w-8 items-center justify-center
+                     rounded-full bg-base-200 font-bold"
+              aria-hidden="true">
+          {{ (strong + worth) | length + 1 }}</span>
+        <div>
+          <p class="font-semibold leading-snug">
+            Stuck on any of these? Call 211.
+          </p>
+          <p class="text-sm opacity-75 mt-0.5">
+            Free, 24/7. A real person can walk you through
+            applications and find local help these programs
+            don't cover.
+          </p>
+        </div>
+      </li>
+    </ol>
+    {% else %}
+    <p class="text-sm mt-2">
+      None of the federal programs we screen came back as a strong
+      match &mdash; but that's not the end of the road:
+    </p>
+    <ol class="mt-3 space-y-4">
+      <li class="grid grid-cols-[auto_1fr] gap-3">
+        <span class="flex h-8 w-8 items-center justify-center
+                     rounded-full bg-primary text-primary-content
+                     font-bold" aria-hidden="true">1</span>
+        <div>
+          <p class="font-semibold leading-snug">Call 211 &mdash;
+            free, 24/7.</p>
+          <p class="text-sm opacity-75 mt-0.5">
+            A real person who knows your area's state and local
+            programs, which often reach further than the federal
+            ones we screen.
+          </p>
+        </div>
+      </li>
+      <li class="grid grid-cols-[auto_1fr] gap-3">
+        <span class="flex h-8 w-8 items-center justify-center
+                     rounded-full bg-base-200 font-bold"
+              aria-hidden="true">2</span>
+        <div>
+          <p class="font-semibold leading-snug">
+            Check the resources below.
+          </p>
+          <p class="text-sm opacity-75 mt-0.5">
+            We searched for state, local, and mutual aid options
+            that may fit your situation.
+          </p>
+        </div>
+      </li>
+    </ol>
+    {% endif %}
+
+    <div class="card-actions justify-end mt-2 print-hide">
+      <button type="button" onclick="window.print()"
+              class="btn btn-ghost btn-sm">
+        <span aria-hidden="true">🖨️</span> Print or save this plan
+      </button>
+    </div>
+  </div>
+</div>

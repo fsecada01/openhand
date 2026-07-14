@@ -47,7 +47,12 @@
     </div>
     <div class="card-actions items-center justify-between mt-3
                 pt-3 border-t border-base-200">
-      <a class="btn btn-sm btn-outline btn-primary"
+      {# Visual weight tracks eligibility: solid button on the
+         programs worth acting on now, quiet outline elsewhere. #}
+      <a class="btn btn-sm
+                {{ 'btn-primary'
+                   if d.status.value == 'likely_eligible'
+                   else 'btn-outline btn-primary' }}"
          href="{{ d.apply_url }}" target="_blank" rel="noopener">
         How to apply &rarr;
       </a>

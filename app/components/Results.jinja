@@ -1,13 +1,22 @@
 {#def explanation, determinations, resource_searches=None, prior_narrative="", profile_json="", round_num=1, offer_feedback=True #}
-<h2 class="text-2xl font-bold mb-3 flex items-center gap-2">
-  <span aria-hidden="true">✅</span> What we found
+<h2 class="font-display text-3xl font-semibold mb-4">
+  What we found
 </h2>
+<NextSteps :determinations="determinations" />
 <ExplanationCard :explanation="explanation" />
 
-<h3 class="text-xl font-semibold mb-3">Program details</h3>
+<h3 class="font-display text-xl font-semibold mb-3">
+  Program details
+</h3>
+{# Strongest matches first — the order a person should read (and
+   act) in, not the order the engine happened to run. #}
+{% set status_order = ["likely_eligible", "possibly_eligible",
+                       "undetermined", "likely_ineligible"] %}
 <div class="grid gap-4 sm:grid-cols-2">
-  {% for d in determinations %}
+  {% for status in status_order %}
+  {% for d in determinations if d.status.value == status %}
   <DeterminationCard :d="d" />
+  {% endfor %}
   {% endfor %}
 </div>
 

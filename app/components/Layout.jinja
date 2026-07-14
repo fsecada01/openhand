@@ -6,14 +6,57 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ title }}</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤲</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;700&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap"
+        rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/daisyui@5"
         rel="stylesheet" type="text/css">
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4">
   </script>
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   <style>
+    /* OpenHand theme: sage paper, spruce ink, marigold accent —
+       the palette of a community-garden flyer, not a government
+       portal. Overrides daisyUI's stock "emerald" tokens. */
+    [data-theme="emerald"] {
+      --color-base-100: #fdfdfa;
+      --color-base-200: #f0f3ea;
+      --color-base-300: #dde3d3;
+      --color-base-content: #273129;
+      --color-primary: #1d5c4b;
+      --color-primary-content: #f2f7f2;
+      --color-secondary: #3d7a8c;
+      --color-secondary-content: #eef6f8;
+      --color-accent: #dfa126;
+      --color-accent-content: #33270a;
+      --color-neutral: #44514a;
+      --color-neutral-content: #eef1ec;
+      --color-info: #3d7a8c;
+      --color-info-content: #eef6f8;
+      --color-success: #2e7d4f;
+      --color-success-content: #ecf6ee;
+      --color-warning: #dfa126;
+      --color-warning-content: #33270a;
+      --color-error: #b04a38;
+      --color-error-content: #faf0ec;
+      --radius-box: 1rem;
+      --radius-field: 0.5rem;
+    }
+
+    body {
+      font-family: "Atkinson Hyperlegible Next",
+                   "Atkinson Hyperlegible", system-ui, sans-serif;
+    }
+    .font-display {
+      font-family: "Fraunces", Georgia, serif;
+      letter-spacing: -0.01em;
+    }
+
     .spinner { display: none; }
     .htmx-request .spinner { display: inline-block; }
+    .htmx-request .spinner-block { display: block; }
+    .spinner-block { display: none; }
 
     #flow.htmx-added,
     #flow > * {
@@ -26,24 +69,39 @@
     @media (prefers-reduced-motion: reduce) {
       #flow.htmx-added, #flow > * { animation: none; }
     }
+
+    /* Printing = the person keeping their plan. Strip everything
+       interactive so what comes out of the printer reads like a
+       handout, not a screenshot of an app. */
+    @media print {
+      form, footer, #toast-container, .print-hide {
+        display: none !important;
+      }
+      body { background: white; }
+      .card, .shadow-lg, .shadow-md, .shadow-sm {
+        box-shadow: none !important;
+        border: 1px solid #ccc;
+      }
+    }
   </style>
 </head>
 <body class="bg-base-200 min-h-screen flex flex-col">
-  <div class="max-w-3xl mx-auto px-4 py-10 flex-1 w-full">
-    <header class="mb-8 text-center sm:text-left">
-      <div class="inline-flex items-center gap-3">
+  <div class="max-w-3xl mx-auto px-4 py-8 flex-1 w-full">
+    <header class="mb-8">
+      <a href="/" class="inline-flex items-center gap-3 group">
         <span class="flex h-11 w-11 items-center justify-center
-                      rounded-2xl bg-primary/15 text-2xl"
+                      rounded-2xl bg-primary text-2xl shadow-sm"
               aria-hidden="true">🤲</span>
-        <h1 class="text-3xl font-bold tracking-tight">OpenHand</h1>
-      </div>
-      <p class="text-sm opacity-70 mt-3 max-w-xl mx-auto sm:mx-0">
-        Describe what's going on in your own words. This tool checks
-        whether public programs (SNAP, Medicaid/CHIP, Medicare, EITC)
-        might help &mdash; alongside, never instead of, your local
-        mutual aid community. Nothing you type here is stored, and
-        results are estimates only.
-      </p>
+        <span>
+          <span class="font-display block text-3xl font-semibold
+                       tracking-tight leading-none
+                       group-hover:text-primary transition-colors">
+            OpenHand</span>
+          <span class="block text-xs opacity-60 mt-1">
+            A community tool for finding help you may already
+            qualify for</span>
+        </span>
+      </a>
     </header>
     <main>{{ content }}</main>
   </div>

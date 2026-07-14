@@ -1,8 +1,16 @@
 {#def question, prior_narrative, round_num=1 #}
 <div class="card bg-base-100 shadow-lg border border-base-300/60">
   <div class="card-body">
-    <div class="alert alert-info shadow-sm">
-      <span><strong>One more thing:</strong> {{ question }}</span>
+    {# A person asking a follow-up, not a system throwing an alert. #}
+    <div class="grid grid-cols-[auto_1fr] gap-3 items-start">
+      <span class="flex h-9 w-9 items-center justify-center
+                   rounded-full bg-primary/15 text-lg"
+            aria-hidden="true">🤲</span>
+      <div class="rounded-2xl rounded-tl-sm bg-primary/10 px-4 py-3">
+        <p class="text-xs font-semibold uppercase tracking-wide
+                  opacity-60 mb-1">One quick question</p>
+        <p>{{ question }}</p>
+      </div>
     </div>
     <Form action="/screen">
       <input type="hidden" name="prior_narrative"

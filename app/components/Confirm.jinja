@@ -1,10 +1,19 @@
 {#def prior_narrative, round_num=1, confirm_round=1, headline="Before we show your results", body="did we miss anything?" #}
 <div class="card bg-base-100 shadow-lg border border-base-300/60">
   <div class="card-body">
-    <div class="alert alert-info shadow-sm">
-      <span>
-        <strong>{{ headline }}</strong> &mdash; {{ body }}
-      </span>
+    <div class="grid grid-cols-[auto_1fr] gap-3 items-start">
+      <span class="flex h-9 w-9 items-center justify-center
+                   rounded-full bg-primary/15 text-lg"
+            aria-hidden="true">🤲</span>
+      <div class="rounded-2xl rounded-tl-sm bg-primary/10 px-4 py-3">
+        <p class="text-xs font-semibold uppercase tracking-wide
+                  opacity-60 mb-1">{{ headline }}</p>
+        {# Uppercase only the first letter — the prompts read as
+           "headline — body" so bodies arrive lowercase, but
+           `capitalize` would also flatten mid-string capitals
+           ("For example:"). #}
+        <p>{{ body[0] | upper ~ body[1:] }}</p>
+      </div>
     </div>
     <Form action="/screen">
       <input type="hidden" name="prior_narrative"

@@ -1,4 +1,30 @@
 <Layout>
+  <div class="mb-8">
+    <h1 class="font-display text-4xl sm:text-5xl font-semibold
+               leading-tight tracking-tight">
+      Tell us what&rsquo;s going on.<br>
+      <span class="text-primary">We&rsquo;ll check what you qualify
+      for.</span>
+    </h1>
+    <p class="text-base opacity-75 mt-4 max-w-xl">
+      Describe your situation in your own words &mdash; no forms, no
+      account. We check it against real federal program rules (SNAP,
+      Medicaid/CHIP, Medicare, EITC) and hand you a plan:
+      what to apply for, where, and what to have ready.
+    </p>
+    <ul class="flex flex-wrap gap-2 mt-5 text-xs" aria-label="Privacy and trust">
+      <li class="badge badge-outline gap-1.5 py-3">
+        <span aria-hidden="true">🔒</span> Nothing you type is stored
+      </li>
+      <li class="badge badge-outline gap-1.5 py-3">
+        <span aria-hidden="true">💚</span> Free &mdash; not a
+        government site
+      </li>
+      <li class="badge badge-outline gap-1.5 py-3">
+        <span aria-hidden="true">🤝</span> Works alongside mutual aid
+      </li>
+    </ul>
+  </div>
   <div id="flow">
     <Form action="/screen" class="card bg-base-100 shadow-lg
                                    border border-base-300/60">
@@ -18,9 +44,14 @@
                   class="textarea textarea-bordered w-full min-h-32
                          focus:textarea-primary transition-colors"
                   placeholder="Tell us your situation..."></textarea>
-        <div class="card-actions justify-end">
+        <div class="card-actions justify-end items-center">
           <SubmitButton />
         </div>
+        <p class="spinner-block text-xs opacity-70 text-right"
+           aria-live="polite">
+          Checking SNAP, Medicaid, Medicare, and EITC &mdash;
+          usually under a minute.
+        </p>
       </div>
     </Form>
   </div>
