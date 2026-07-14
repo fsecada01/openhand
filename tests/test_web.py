@@ -33,6 +33,13 @@ def test_about_page_renders():
     assert "anthropic" in resp.text.lower()
 
 
+def test_homepage_footer_links_to_about():
+    with TestClient(app) as client:
+        resp = client.get("/")
+    assert resp.status_code == 200
+    assert 'href="/about"' in resp.text
+
+
 def test_evaluate_endpoint_is_deterministic():
     payload = {
         "state": "TX",
