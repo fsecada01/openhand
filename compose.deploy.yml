@@ -12,22 +12,16 @@ services:
     env_file:
       - stack.env
     environment:
-      # Registrator registers the published port under this name in
-      # Consul; Traefik reads the labels below as consul tags.
+      # gliderlabs/registrator reads SERVICE_NAME + SERVICE_TAGS from
+      # the environment (not docker labels) and registers them in
+      # Consul. Traefik's consulCatalog provider runs with
+      # exposedByDefault: false, so the tags below opt the service in.
+      # server.url must be host IP + published port — Traefik on .76
+      # can't reach .62 container IPs.
       SERVICE_NAME: openhand
+      SERVICE_TAGS: "traefik.enable=true,traefik.http.routers.openhand.rule=Host(`openhand.francissecada.com`),traefik.http.routers.openhand.entrypoints=websecure,traefik.http.routers.openhand.tls.certresolver=letsencrypt,traefik.http.routers.openhand.middlewares=secureHeaders@file,traefik.http.services.openhand.loadbalancer.server.url=http://192.168.1.62:8010"
       DATABASE_URL: sqlite:////app/data/openhand.db
       SQL_DIALECT: sqlite
-    # Traefik's consulCatalog provider has exposedByDefault: false —
-    # these labels ride through Registrator into Consul tags and opt
-    # the service in. server.url must be host IP + published port
-    # (Traefik on .76 can't reach .62 container IPs).
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.openhand.rule=Host(`openhand.francissecada.com`)"
-      - "traefik.http.routers.openhand.entrypoints=websecure"
-      - "traefik.http.routers.openhand.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.openhand.middlewares=secureHeaders@file"
-      - "traefik.http.services.openhand.loadbalancer.server.url=http://192.168.1.62:8010"
     volumes:
       - openhand_data:/app/data
 
