@@ -30,7 +30,12 @@
                 class="btn btn-ghost btn-sm">
           No, that's everything &mdash; show my results
         </button>
-        <SubmitButton label="Add &amp; continue" />
+        {# Plain "&" here, not the &amp; entity: autoescape (see
+           app/ui.py) escapes this string when SubmitButton renders
+           {{ label }}, so a literal "&" is what shows up as "&" in
+           the browser — an entity would double-escape to a literal
+           "&amp;" on screen. #}
+        <SubmitButton label="Add & continue" />
       </div>
     </Form>
   </div>
