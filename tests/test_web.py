@@ -48,6 +48,13 @@ def test_mission_page_renders():
     assert "github.com/fsecada01/openhand" in resp.text
 
 
+def test_homepage_footer_links_to_mission():
+    with TestClient(app) as client:
+        resp = client.get("/")
+    assert resp.status_code == 200
+    assert 'href="/mission"' in resp.text
+
+
 def test_evaluate_endpoint_is_deterministic():
     payload = {
         "state": "TX",
