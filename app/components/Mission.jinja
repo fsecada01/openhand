@@ -1,0 +1,102 @@
+<Layout title="Our Mission &mdash; OpenHand">
+  <article class="space-y-10">
+    <div>
+      <h1 class="font-display text-3xl sm:text-4xl font-semibold
+                 leading-tight tracking-tight">
+        The programs don't talk to each other. We're building the
+        layer that does.
+      </h1>
+      <p class="text-base opacity-75 mt-4 max-w-xl">
+        Government benefit programs weren't built to interoperate.
+        Each one has its own eligibility rules, its own application,
+        and &mdash; in almost every case &mdash; no open data or API a
+        screening tool can query directly. Efforts like NYC's
+        ACCESS-NYC rules engine, PolicyEngine, and OpenFisca have each
+        proven that eligibility logic can be modeled as code. What
+        none of them share is a common intake: every project re-asks
+        the same questions about a person's life, then answers them
+        against just its own program.
+      </p>
+    </div>
+
+    <div>
+      <h2 class="font-display text-2xl font-semibold">
+        Overlapping eligibility, non-overlapping paperwork
+      </h2>
+      <p class="text-base opacity-75 mt-3 max-w-xl">
+        Someone who qualifies for SNAP is often already close to
+        qualifying for Medicaid, EITC, or LIHEAP &mdash; the income
+        thresholds overlap far more than the applications do. Each
+        program still asks for its own paperwork, on its own portal,
+        on its own timeline. The red tape isn't incidental to the
+        fragmentation &mdash; it's a direct structural byproduct of
+        programs that were never designed to talk to each other, or to
+        a shared front door.
+      </p>
+    </div>
+
+    <div>
+      <h2 class="font-display text-2xl font-semibold">
+        Decoupling intake from eligibility
+      </h2>
+      <p class="text-base opacity-75 mt-3 max-w-xl">
+        OpenHand's bet is that the two halves of this problem don't need to stay coupled: understanding what a person's situation
+        actually is, and deciding whether a specific program's rule
+        applies to that situation. Separate those, and a single
+        conversation can be evaluated against as many programs' rules
+        as have been modeled &mdash; without asking that person
+        anything new for each one.
+      </p>
+
+      <div class="grid sm:grid-cols-2 gap-6 mt-5">
+        <div>
+          <p class="font-semibold">Today</p>
+          <ul class="text-sm opacity-75 mt-1 space-y-1 list-disc
+                     list-inside">
+            <li>Separate intake per program</li>
+            <li>Separate rules interpretation per program</li>
+            <li>
+              Red tape multiplied by however many programs might apply
+            </li>
+          </ul>
+        </div>
+        <div>
+          <p class="font-semibold">OpenHand</p>
+          <ul class="text-sm opacity-75 mt-1 space-y-1 list-disc
+                     list-inside">
+            <li>One plain-language intake</li>
+            <li>Evaluated against every modeled program's rules</li>
+            <li>
+              Adding a program never means asking the person anything
+              new
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h2 class="font-display text-2xl font-semibold">
+        Where this stands today
+      </h2>
+      <p class="text-base opacity-75 mt-3 max-w-xl">
+        Today, that means three programs: SNAP, Medicaid/CHIP, and
+        EITC. The point of this page isn't that OpenHand already
+        covers everything &mdash; it's that the architecture is built
+        to extend. Adding a fourth program means modeling that
+        program's rules, not rebuilding the intake.
+      </p>
+    </div>
+
+    <div>
+      <p class="text-base opacity-75 max-w-xl">
+        The engine is built to extend. If you work with eligibility
+        rules for a program not covered yet &mdash; or want to help
+        model one &mdash;
+        <a href="https://github.com/fsecada01/openhand" target="_blank"
+           rel="noopener" class="link">the repo</a>
+        is where that happens.
+      </p>
+    </div>
+  </article>
+</Layout>

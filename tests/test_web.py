@@ -40,6 +40,14 @@ def test_homepage_footer_links_to_about():
     assert 'href="/about"' in resp.text
 
 
+def test_mission_page_renders():
+    with TestClient(app) as client:
+        resp = client.get("/mission")
+    assert resp.status_code == 200
+    assert "don't need to stay coupled" in resp.text
+    assert "github.com/fsecada01/openhand" in resp.text
+
+
 def test_evaluate_endpoint_is_deterministic():
     payload = {
         "state": "TX",

@@ -159,6 +159,11 @@ async def about():
     return HTMLResponse(catalog.render("About"))
 
 
+@router.get("/mission", response_class=HTMLResponse)
+async def mission():
+    return HTMLResponse(catalog.render("Mission"))
+
+
 @router.post("/screen", response_class=HTMLResponse)
 @limiter.limit(config.RATE_LIMIT_SCREEN)
 async def screen(
