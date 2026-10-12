@@ -72,7 +72,7 @@ Three guardrails keep the part that has to be right, right:
 
 | Program | Coverage | Data vintage |
 |---|---|---|
-| 🥕 **SNAP** | 48 states + DC | USDA FY2026 COLA tables |
+| 🥕 **SNAP** | 48 states + DC | USDA FY2027 COLA tables (eff. 2026-10-01) |
 | 🏥 **Medicaid** (adults) | 138% FPL expansion + non-expansion map | 2026 FPL · KFF May 2026 |
 | 🧒 **Medicaid/CHIP** (children) | National bands (200% floor / 255% median) | 2026 FPL |
 | 🤰 **Medicaid** (pregnancy) | National bands (138% floor / 200% common) | 2026 FPL |

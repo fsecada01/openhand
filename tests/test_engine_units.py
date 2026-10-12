@@ -46,7 +46,7 @@ def test_snap_limit_extends_past_8():
             thresholds.SNAP_GROSS_EACH_ADDITIONAL,
             10,
         )
-        == 5_867 + 2 * 596
+        == 6_037 + 2 * 616
     )
 
 

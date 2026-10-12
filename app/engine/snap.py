@@ -1,11 +1,11 @@
-"""SNAP screening (48 states + DC, FY2026 USDA tables).
+"""SNAP screening (48 states + DC, FY2027 USDA tables).
 
 Screening-level test only: gross income test (130% FPL, skipped for
 elderly/disabled households) plus an estimated net income test (100%
 FPL) using the standard deduction, the 20% earned income deduction,
 and — when volunteered — the excess shelter, dependent-care, and
 elderly/disabled medical expense deductions. A federal asset test
-($3,000 general / $4,500 elderly-or-disabled) applies only in the
+($3,000 general / $4,750 elderly-or-disabled) applies only in the
 handful of states confirmed to still enforce it (no Broad-Based
 Categorical Eligibility waiver); other states are treated as if the
 test doesn't bind, since state-specific BBCE asset limits aren't
@@ -25,7 +25,7 @@ from app.schemas import (
 APPLY_URL = "https://www.fns.usda.gov/snap/state-directory"
 SOURCE_URL = (
     "https://www.usda.gov/sites/default/files/guidance-documents/"
-    "fns.snap-cola-fy26memo.pdf"
+    "fna.snap-cola2027.pdf"
 )
 
 
