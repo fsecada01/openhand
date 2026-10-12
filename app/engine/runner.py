@@ -3,7 +3,7 @@
 from app.engine import eitc, medicaid, medicare, snap
 from app.schemas import Determination, HouseholdProfile
 
-ENGINE_VERSION = "0.2.0-poc"
+ENGINE_VERSION = "0.2.1-poc"
 
 
 def evaluate(profile: HouseholdProfile) -> list[Determination]:
