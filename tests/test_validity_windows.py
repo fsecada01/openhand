@@ -1,11 +1,12 @@
 """Validity windows: tables are selected by date and fail safe when stale."""
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 import pytest
 
-from app.engine import evaluate
+from app.engine import evaluate, runner
 from app.engine import thresholds as t
+from app.engine.runner import us_today
 from app.schemas import HouseholdProfile, Status
 
 FY2026_DATE = date(2026, 6, 1)
@@ -29,9 +30,20 @@ def by_program(determinations):
     return {d.program: d for d in determinations}
 
 
-def test_default_as_of_is_today():
-    explicit = evaluate(profile(), as_of=date.today())
+def test_default_as_of_is_us_today():
+    explicit = evaluate(profile(), as_of=us_today())
     assert evaluate(profile()) == explicit
+
+
+def test_us_today_never_runs_ahead_of_us_clocks(monkeypatch):
+    class FakeNow:
+        @staticmethod
+        def now(tz):
+            # 2026-10-01 05:00 UTC is still 2026-09-30 21:00 Pacific.
+            return datetime(2026, 10, 1, 5, 0, tzinfo=tz)
+
+    monkeypatch.setattr(runner, "datetime", FakeNow)
+    assert us_today() == date(2026, 9, 30)
 
 
 def test_snap_table_selected_by_date():

@@ -1,12 +1,23 @@
 """Run every program screen against a household profile."""
 
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 
 from app.engine import eitc, medicaid, medicare, snap
 from app.engine import thresholds as t
 from app.schemas import Determination, HouseholdProfile, Status
 
 ENGINE_VERSION = "0.3.0-poc"
+
+
+def us_today() -> date:
+    """Today's date in US Pacific standard time (a fixed UTC-8).
+
+    Tables roll over at US-local midnight, so a UTC server must not
+    flip to a new fiscal year hours before anyone in the contiguous US
+    reaches it. UTC-8 is never ahead of a contiguous-US wall clock. A
+    fixed offset avoids needing tz data on slim images.
+    """
+    return (datetime.now(UTC) - timedelta(hours=8)).date()
 
 
 def _stale(
@@ -50,11 +61,11 @@ def evaluate(
 ) -> list[Determination]:
     """Screen `profile` against the tables in force on `as_of`.
 
-    `as_of` defaults to today. A program with no table covering the
-    date reports `undetermined` with `data_stale`, never a computed
-    result.
+    `as_of` defaults to today in US Pacific time (`us_today`). A
+    program with no table covering the date reports `undetermined`
+    with `data_stale`, never a computed result.
     """
-    as_of = as_of or date.today()
+    as_of = as_of or us_today()
     results: list[Determination | None] = []
 
     snap_set = t.resolve("snap", as_of)
