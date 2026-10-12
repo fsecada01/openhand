@@ -21,6 +21,10 @@ def profile(**kw) -> HouseholdProfile:
     return HouseholdProfile(**base)
 
 
+def _screen_fy2027(profile: HouseholdProfile):
+    return snap.screen(profile, t.SNAP_YEARS["FY2027"])
+
+
 FY2027_GROSS = [1_729, 2_345, 2_960, 3_575, 4_191, 4_806, 5_421, 6_037]
 FY2027_NET = [1_330, 1_804, 2_277, 2_750, 3_224, 3_697, 4_170, 4_644]
 FY2027_MAX = [306, 562, 808, 1_023, 1_217, 1_463, 1_616, 1_841]
@@ -95,7 +99,7 @@ def test_fy2027_shelter_cap_medical_floor_minimum_assets():
 
 def test_snap_source_is_fy2027_memo():
     assert "fna.snap-cola2027.pdf" in snap.SOURCE_URL
-    d = snap.screen(profile())
+    d = _screen_fy2027(profile())
     assert d.source_url == snap.SOURCE_URL
     assert d.data_vintage == t.SNAP_DATA_VINTAGE
 
@@ -106,7 +110,7 @@ def test_income_between_fy2026_and_fy2027_gross_limit_now_passes():
     # the FY2027 net limit of 1,330, so the result is a firm likely_eligible.
     income = 1_700
     assert income > t.SNAP_YEARS["FY2026"].gross_monthly[1]
-    d = snap.screen(
+    d = _screen_fy2027(
         profile(monthly_gross_income=income, monthly_earned_income=income)
     )
     assert d.status == Status.likely_eligible

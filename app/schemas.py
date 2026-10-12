@@ -386,6 +386,7 @@ class Determination(BaseModel):
     apply_url: str
     data_vintage: str
     source_url: str
+    data_stale: bool = False
 
 
 class ExplanationSection(BaseModel):

@@ -23,26 +23,39 @@ from app.schemas import (
 )
 
 APPLY_URL = "https://www.fns.usda.gov/snap/state-directory"
-SOURCE_URL = (
-    "https://www.usda.gov/sites/default/files/guidance-documents/"
-    "fna.snap-cola2027.pdf"
-)
+PROGRAM_NAME = "SNAP (food assistance)"
+SOURCE_URL = t.SNAP_YEARS[t.SNAP_ACTIVE_YEAR].source_url
 
 
-def _det(status: Status, reasons: list[str], benefit: str | None = None):
+def _screen_det(
+    year: t.SnapYear,
+    status: Status,
+    reasons: list[str],
+    benefit: str | None = None,
+) -> Determination:
     return Determination(
         program="snap",
-        program_name="SNAP (food assistance)",
+        program_name=PROGRAM_NAME,
         status=status,
         reasons=reasons,
         estimated_benefit=benefit,
         apply_url=APPLY_URL,
-        data_vintage=t.SNAP_DATA_VINTAGE,
-        source_url=SOURCE_URL,
+        data_vintage=year.vintage,
+        source_url=year.source_url,
     )
 
 
-def screen(profile: HouseholdProfile) -> Determination:
+def screen(profile: HouseholdProfile, year: t.SnapYear) -> Determination:
+    """Screen against `year`'s tables.
+
+    `year` is required: the runner resolves it from the as-of date and
+    never calls this for a date no validity window covers, so there is
+    no implicit "current" table to fall back on here.
+    """
+
+    def _det(status, reasons, benefit=None):
+        return _screen_det(year, status, reasons, benefit)
+
     if profile.state in ("AK", "HI"):
         return _det(
             Status.undetermined,
@@ -54,9 +67,9 @@ def screen(profile: HouseholdProfile) -> Determination:
         )
 
     asset_limit = (
-        t.SNAP_ASSET_LIMIT_ELDERLY_DISABLED
+        year.asset_limit_elderly_disabled
         if profile.has_elderly_or_disabled
-        else t.SNAP_ASSET_LIMIT_GENERAL
+        else year.asset_limit_general
     )
     if (
         profile.state in t.SNAP_ASSET_TEST_STATES
@@ -103,13 +116,11 @@ def screen(profile: HouseholdProfile) -> Determination:
         earned = profile.earned
 
     gross_limit = t.snap_limit(
-        t.SNAP_GROSS_MONTHLY, t.SNAP_GROSS_EACH_ADDITIONAL, size
+        year.gross_monthly, year.gross_each_additional, size
     )
-    net_limit = t.snap_limit(
-        t.SNAP_NET_MONTHLY, t.SNAP_NET_EACH_ADDITIONAL, size
-    )
+    net_limit = t.snap_limit(year.net_monthly, year.net_each_additional, size)
     max_allotment = t.snap_limit(
-        t.SNAP_MAX_ALLOTMENT, t.SNAP_ALLOTMENT_EACH_ADDITIONAL, size
+        year.max_allotment, year.allotment_each_additional, size
     )
 
     # Adjusted income: standard deduction, 20% of earned income,
@@ -123,7 +134,7 @@ def screen(profile: HouseholdProfile) -> Determination:
         )
     adjusted = (
         income
-        - t.snap_standard_deduction(size)
+        - year.standard_deduction_for(size)
         - earned * t.SNAP_EARNED_INCOME_DEDUCTION_PCT
         - dependent_care
         - medical_deduction
@@ -138,7 +149,7 @@ def screen(profile: HouseholdProfile) -> Determination:
     )
     excess_shelter = max(shelter_costs - 0.5 * adjusted, 0)
     if not profile.has_elderly_or_disabled:
-        excess_shelter = min(excess_shelter, t.SNAP_SHELTER_DEDUCTION_CAP)
+        excess_shelter = min(excess_shelter, year.shelter_deduction_cap)
     est_net = max(adjusted - excess_shelter, 0)
     deductions_applied = (
         excess_shelter > 0 or dependent_care > 0 or medical_deduction > 0

@@ -18,6 +18,7 @@ Sources:
 
 from collections.abc import Mapping
 from dataclasses import dataclass, fields
+from datetime import date
 from types import MappingProxyType
 
 # --- HHS poverty guidelines (annual dollars) -------------------------
@@ -51,6 +52,7 @@ class SnapYear:
     """One fiscal year of SNAP COLA values for the 48 states + DC."""
 
     vintage: str
+    source_url: str
     gross_monthly: Mapping[int, int]
     gross_each_additional: int
     net_monthly: Mapping[int, int]
@@ -64,6 +66,11 @@ class SnapYear:
     asset_limit_general: int
     asset_limit_elderly_disabled: int
 
+    def standard_deduction_for(self, size: int) -> int:
+        if size >= 6:
+            return self.standard_deduction_6_plus
+        return self.standard_deduction[size]
+
     def __post_init__(self):
         # frozen=True is shallow; make the tables read-only too.
         for f in fields(self):
@@ -72,9 +79,20 @@ class SnapYear:
                 object.__setattr__(self, f.name, MappingProxyType(value))
 
 
+_SNAP_SOURCE = (
+    "https://www.fns.usda.gov/snap/"
+    "supplemental-nutrition-assistance-program-snap-"
+    "income-eligibility-standards"
+)
+_SNAP_FY2027_COLA_SOURCE = (
+    "https://www.usda.gov/sites/default/files/guidance-documents/"
+    "fna.snap-cola2027.pdf"
+)
+
 SNAP_YEARS = {
     "FY2026": SnapYear(
         vintage="FY2026 (2025-10-01 to 2026-09-30)",
+        source_url=_SNAP_SOURCE,
         gross_monthly={
             1: 1_696,
             2: 2_292,
@@ -117,6 +135,7 @@ SNAP_YEARS = {
     ),
     "FY2027": SnapYear(
         vintage="FY2027 (2026-10-01 to 2027-09-30)",
+        source_url=_SNAP_FY2027_COLA_SOURCE,
         gross_monthly={
             1: 1_729,
             2: 2_345,
@@ -210,9 +229,7 @@ def snap_limit(
 
 
 def snap_standard_deduction(size: int) -> int:
-    if size >= 6:
-        return SNAP_STANDARD_DEDUCTION_6_PLUS
-    return SNAP_STANDARD_DEDUCTION[size]
+    return _SNAP.standard_deduction_for(size)
 
 
 # --- Medicaid / CHIP (mid-2026) ---------------------------------------
@@ -250,3 +267,104 @@ EITC_TABLE = {
     3: (61_555, 68_675, 8_046),
 }
 EITC_CHILDLESS_AGE_RANGE = (25, 64)
+
+
+# --- Validity windows -------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ThresholdSet:
+    """One published table with the dates it may be applied to.
+
+    `program` groups sets that compete for the same date ("snap",
+    "medicaid", "eitc"); `key` names the set within the group.
+    `effective_through` is inclusive. A date no set covers must never
+    be answered with a computed result.
+    """
+
+    program: str
+    key: str
+    vintage: str
+    effective_from: date
+    effective_through: date
+    source_url: str
+    last_verified: date
+
+    def covers(self, as_of: date) -> bool:
+        return self.effective_from <= as_of <= self.effective_through
+
+
+_POVERTY_SOURCE = (
+    "https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines"
+)
+_EITC_SOURCE = (
+    "https://www.irs.gov/credits-deductions/individuals/"
+    "earned-income-tax-credit"
+)
+
+THRESHOLD_SETS = (
+    ThresholdSet(
+        program="snap",
+        key="FY2026",
+        vintage=SNAP_YEARS["FY2026"].vintage,
+        effective_from=date(2025, 10, 1),
+        effective_through=date(2026, 9, 30),
+        source_url=_SNAP_SOURCE,
+        last_verified=date(2026, 7, 13),
+    ),
+    ThresholdSet(
+        program="snap",
+        key="FY2027",
+        vintage=SNAP_YEARS["FY2027"].vintage,
+        effective_from=date(2026, 10, 1),
+        effective_through=date(2027, 9, 30),
+        source_url=_SNAP_SOURCE,
+        last_verified=date(2026, 10, 11),
+    ),
+    # The 2026 HHS guidelines apply until the 2027 guidelines take
+    # effect for Medicaid/CHIP, historically around April 1.
+    ThresholdSet(
+        program="medicaid",
+        key="2026",
+        vintage=MEDICAID_DATA_VINTAGE,
+        effective_from=date(2026, 1, 1),
+        effective_through=date(2027, 3, 31),
+        source_url=_POVERTY_SOURCE,
+        last_verified=date(2026, 7, 13),
+    ),
+    # Tax-year-2025 parameters serve returns filed during 2026; the
+    # tax-year-2026 table is needed from 2027-01-01.
+    ThresholdSet(
+        program="eitc",
+        key="TY2025",
+        vintage=EITC_DATA_VINTAGE,
+        effective_from=date(2026, 1, 1),
+        effective_through=date(2026, 12, 31),
+        source_url=_EITC_SOURCE,
+        last_verified=date(2026, 7, 13),
+    ),
+)
+
+
+def _check_snap_sets_match_years() -> None:
+    """Fail at import if a SNAP window and its table drift apart."""
+    keys = {ts.key for ts in THRESHOLD_SETS if ts.program == "snap"}
+    if keys != set(SNAP_YEARS):
+        raise RuntimeError(
+            "SNAP validity windows and SNAP_YEARS disagree: "
+            f"windows={sorted(keys)}, tables={sorted(SNAP_YEARS)}"
+        )
+    for ts in THRESHOLD_SETS:
+        if ts.program == "snap" and ts.vintage != SNAP_YEARS[ts.key].vintage:
+            raise RuntimeError(f"SNAP {ts.key} vintage mismatch")
+
+
+_check_snap_sets_match_years()
+
+
+def resolve(program: str, as_of: date) -> ThresholdSet | None:
+    """The set for `program` whose window covers `as_of`, if any."""
+    for ts in THRESHOLD_SETS:
+        if ts.program == program and ts.covers(as_of):
+            return ts
+    return None

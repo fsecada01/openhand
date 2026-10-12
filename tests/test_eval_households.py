@@ -4,6 +4,7 @@ behavior and must be re-verified against published guidelines.
 """
 
 import json
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -19,7 +20,8 @@ CASES = json.loads(
 @pytest.mark.parametrize("case", CASES, ids=[c["name"] for c in CASES])
 def test_household(case):
     profile = HouseholdProfile(**case["profile"])
-    results = {d.program: d for d in evaluate(profile)}
+    as_of = date.fromisoformat(case["as_of"])
+    results = {d.program: d for d in evaluate(profile, as_of=as_of)}
 
     for program, status in case["expected"].items():
         assert program in results, f"{program} missing from results"

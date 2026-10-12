@@ -1,18 +1,105 @@
 """Run every program screen against a household profile."""
 
+from datetime import UTC, date, datetime, timedelta
+
 from app.engine import eitc, medicaid, medicare, snap
-from app.schemas import Determination, HouseholdProfile
+from app.engine import thresholds as t
+from app.schemas import Determination, HouseholdProfile, Status
 
-ENGINE_VERSION = "0.2.1-poc"
+ENGINE_VERSION = "0.3.0-poc"
 
 
-def evaluate(profile: HouseholdProfile) -> list[Determination]:
-    results: list[Determination | None] = [
-        snap.screen(profile),
-        medicaid.screen_adult(profile),
-        medicaid.screen_children(profile),
-        medicaid.screen_pregnant(profile),
-        medicare.screen(profile),
-        eitc.screen(profile),
-    ]
+def us_today() -> date:
+    """Today's date in US Pacific standard time (a fixed UTC-8).
+
+    Tables roll over at US-local midnight, so a UTC server must not
+    flip to a new fiscal year hours before anyone in the contiguous US
+    reaches it. UTC-8 is never ahead of a contiguous-US wall clock. A
+    fixed offset avoids needing tz data on slim images.
+    """
+    return (datetime.now(UTC) - timedelta(hours=8)).date()
+
+
+def _stale(
+    program: str,
+    name: str,
+    group: str,
+    as_of: date,
+    apply_url: str,
+) -> Determination:
+    """Fail-safe result for a date no published table covers."""
+    windows = [ts for ts in t.THRESHOLD_SETS if ts.program == group]
+    if windows:
+        start = min(ts.effective_from for ts in windows)
+        end = max(ts.effective_through for ts in windows)
+        reason = (
+            f"This screener's {name} figures only cover {start} to "
+            f"{end}, and {as_of} is outside that range, so it can't "
+            "give a result. Please check with the agency directly."
+        )
+        source_url = windows[-1].source_url
+    else:
+        reason = (
+            f"This screener has no {name} figures loaded, so it can't "
+            "give a result. Please check with the agency directly."
+        )
+        source_url = apply_url
+    return Determination(
+        program=program,
+        program_name=name,
+        status=Status.undetermined,
+        reasons=[reason],
+        apply_url=apply_url,
+        data_vintage=f"No published table covers {as_of}",
+        source_url=source_url,
+        data_stale=True,
+    )
+
+
+def evaluate(
+    profile: HouseholdProfile, as_of: date | None = None
+) -> list[Determination]:
+    """Screen `profile` against the tables in force on `as_of`.
+
+    `as_of` defaults to today in US Pacific time (`us_today`). A
+    program with no table covering the date reports `undetermined`
+    with `data_stale`, never a computed result.
+    """
+    as_of = as_of or us_today()
+    results: list[Determination | None] = []
+
+    snap_set = t.resolve("snap", as_of)
+    if snap_set:
+        results.append(snap.screen(profile, t.SNAP_YEARS[snap_set.key]))
+    else:
+        results.append(
+            _stale("snap", snap.PROGRAM_NAME, "snap", as_of, snap.APPLY_URL)
+        )
+
+    if t.resolve("medicaid", as_of):
+        results += [
+            medicaid.screen_adult(profile),
+            medicaid.screen_children(profile),
+            medicaid.screen_pregnant(profile),
+        ]
+    else:
+        results += [
+            _stale(program, name, "medicaid", as_of, medicaid.APPLY_URL)
+            for program, name in medicaid.applicable_programs(profile)
+        ]
+
+    results.append(medicare.screen(profile))
+
+    if t.resolve("eitc", as_of):
+        results.append(eitc.screen(profile))
+    else:
+        results.append(
+            _stale(
+                "eitc",
+                "Earned Income Tax Credit (EITC)",
+                "eitc",
+                as_of,
+                eitc.APPLY_URL,
+            )
+        )
     return [d for d in results if d is not None]

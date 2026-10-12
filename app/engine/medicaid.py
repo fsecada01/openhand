@@ -16,6 +16,33 @@ SOURCE_URL = (
 )
 
 
+ADULT = ("medicaid_adult", "Medicaid (adults)")
+CHILDREN = ("medicaid_chip_children", "Medicaid/CHIP (children)")
+PREGNANT = ("medicaid_pregnant", "Medicaid (pregnancy)")
+
+
+def _children_apply(profile: HouseholdProfile) -> bool:
+    return profile.num_children >= 1
+
+
+def _pregnant_applies(profile: HouseholdProfile) -> bool:
+    return bool(profile.is_pregnant)
+
+
+def applicable_programs(profile: HouseholdProfile) -> list[tuple[str, str]]:
+    """(program id, display name) for each Medicaid screen that applies.
+
+    Single source for which screens exist, shared by the live path
+    (`screen_*`) and the runner's stale-data fail-safe.
+    """
+    programs = [ADULT]
+    if _children_apply(profile):
+        programs.append(CHILDREN)
+    if _pregnant_applies(profile):
+        programs.append(PREGNANT)
+    return programs
+
+
 def _det(program, name, status, reasons):
     return Determination(
         program=program,
@@ -54,16 +81,14 @@ def screen_adult(profile: HouseholdProfile) -> Determination:
                 "adult-expansion pathway above.",
             )
         return _det(
-            "medicaid_adult",
-            "Medicaid (adults)",
+            *ADULT,
             Status.undetermined,
             reasons,
         )
 
     if income <= limit:
         return _det(
-            "medicaid_adult",
-            "Medicaid (adults)",
+            *ADULT,
             Status.likely_eligible,
             [
                 f"Monthly income ${income:,.0f} is about "
@@ -74,8 +99,7 @@ def screen_adult(profile: HouseholdProfile) -> Determination:
         )
 
     return _det(
-        "medicaid_adult",
-        "Medicaid (adults)",
+        *ADULT,
         Status.likely_ineligible,
         [
             f"Monthly income ${income:,.0f} is about {pct:.0f}% of "
@@ -88,7 +112,7 @@ def screen_adult(profile: HouseholdProfile) -> Determination:
 
 
 def screen_children(profile: HouseholdProfile) -> Determination | None:
-    if profile.num_children < 1:
+    if not _children_apply(profile):
         return None
     fpl = t.fpl_monthly(profile.household_size, profile.state)
     income = profile.magi_income_monthly
@@ -118,15 +142,14 @@ def screen_children(profile: HouseholdProfile) -> Determination | None:
             "your state's limit.",
         ]
     return _det(
-        "medicaid_chip_children",
-        "Medicaid/CHIP (children)",
+        *CHILDREN,
         status,
         reasons,
     )
 
 
 def screen_pregnant(profile: HouseholdProfile) -> Determination | None:
-    if not profile.is_pregnant:
+    if not _pregnant_applies(profile):
         return None
     fpl = t.fpl_monthly(profile.household_size, profile.state)
     income = profile.magi_income_monthly
@@ -153,8 +176,7 @@ def screen_pregnant(profile: HouseholdProfile) -> Determination | None:
             "higher (up to ~380%). Check your state's limit.",
         ]
     return _det(
-        "medicaid_pregnant",
-        "Medicaid (pregnancy)",
+        *PREGNANT,
         status,
         reasons,
     )
