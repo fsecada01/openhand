@@ -140,3 +140,14 @@ def test_stale_reason_states_one_covered_span():
     d = _stale("snap", "SNAP", "snap", date(2024, 1, 1), "https://x.test/")
     assert d.reasons[0].count("2025-10-01") == 1
     assert "2027-09-30" in d.reasons[0]
+
+
+def test_stale_card_shows_out_of_date_notice():
+    from app.ui import catalog
+
+    stale = evaluate(profile(), as_of=date(2099, 1, 1))[0]
+    fresh = evaluate(profile(), as_of=FY2027_DATE)[0]
+    assert "data-stale-notice" in catalog.render("DeterminationCard", d=stale)
+    assert "data-stale-notice" not in catalog.render(
+        "DeterminationCard", d=fresh
+    )

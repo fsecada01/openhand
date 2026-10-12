@@ -35,6 +35,12 @@
           {{ d.program_name }}
           <StatusBadge :status="d.status.value" />
         </h3>
+        {% if d.data_stale %}
+        <p class="text-sm font-medium mt-1" data-stale-notice>
+          Out-of-date figures: this screener has no current table for
+          this program, so it can't give a result.
+        </p>
+        {% endif %}
         <ul class="list-disc ml-5 text-sm space-y-0.5 mt-1">
           {% for reason in d.reasons %}<li>{{ reason }}</li>{% endfor %}
         </ul>
