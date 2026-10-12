@@ -112,3 +112,19 @@ def test_snap_windows_and_tables_must_match(monkeypatch):
     monkeypatch.setitem(t.SNAP_YEARS, "FY2099", t.SNAP_YEARS["FY2027"])
     with pytest.raises(RuntimeError):
         t._check_snap_sets_match_years()
+
+
+def test_stale_result_for_unknown_group_does_not_raise():
+    from app.engine.runner import _stale
+
+    d = _stale("x", "Program X", "nope", date(2026, 1, 1), "https://x.test/")
+    assert d.data_stale is True
+    assert d.status == Status.undetermined
+
+
+def test_stale_reason_states_one_covered_span():
+    from app.engine.runner import _stale
+
+    d = _stale("snap", "SNAP", "snap", date(2024, 1, 1), "https://x.test/")
+    assert d.reasons[0].count("2025-10-01") == 1
+    assert "2027-09-30" in d.reasons[0]

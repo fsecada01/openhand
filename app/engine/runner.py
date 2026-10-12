@@ -18,21 +18,29 @@ def _stale(
 ) -> Determination:
     """Fail-safe result for a date no published table covers."""
     windows = [ts for ts in t.THRESHOLD_SETS if ts.program == group]
-    covered = ", ".join(
-        f"{ts.effective_from} to {ts.effective_through}" for ts in windows
-    )
+    if windows:
+        start = min(ts.effective_from for ts in windows)
+        end = max(ts.effective_through for ts in windows)
+        reason = (
+            f"This screener's {name} figures only cover {start} to "
+            f"{end}, and {as_of} is outside that range, so it can't "
+            "give a result. Please check with the agency directly."
+        )
+        source_url = windows[-1].source_url
+    else:
+        reason = (
+            f"This screener has no {name} figures loaded, so it can't "
+            "give a result. Please check with the agency directly."
+        )
+        source_url = apply_url
     return Determination(
         program=program,
         program_name=name,
         status=Status.undetermined,
-        reasons=[
-            f"This screener's {name} figures only cover {covered}, "
-            f"and {as_of} is outside that range, so it can't give a "
-            "result. Please check with the agency directly."
-        ],
+        reasons=[reason],
         apply_url=apply_url,
         data_vintage=f"No published table covers {as_of}",
-        source_url=windows[0].source_url,
+        source_url=source_url,
         data_stale=True,
     )
 
