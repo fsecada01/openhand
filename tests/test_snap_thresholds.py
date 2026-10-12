@@ -8,8 +8,18 @@ import pytest
 
 from app.engine import snap
 from app.engine import thresholds as t
-from app.schemas import Status
-from tests.test_engine_units import profile
+from app.schemas import HouseholdProfile, Status
+
+
+def profile(**kw) -> HouseholdProfile:
+    base = {
+        "state": "OH",
+        "household_size": 1,
+        "monthly_gross_income": 1000,
+    }
+    base.update(kw)
+    return HouseholdProfile(**base)
+
 
 FY2027_GROSS = [1_729, 2_345, 2_960, 3_575, 4_191, 4_806, 5_421, 6_037]
 FY2027_NET = [1_330, 1_804, 2_277, 2_750, 3_224, 3_697, 4_170, 4_644]
