@@ -24,10 +24,7 @@ from app.schemas import (
 
 APPLY_URL = "https://www.fns.usda.gov/snap/state-directory"
 PROGRAM_NAME = "SNAP (food assistance)"
-SOURCE_URL = (
-    "https://www.usda.gov/sites/default/files/guidance-documents/"
-    "fna.snap-cola2027.pdf"
-)
+SOURCE_URL = t.SNAP_YEARS[t.SNAP_ACTIVE_YEAR].source_url
 
 
 def _screen_det(
@@ -35,6 +32,7 @@ def _screen_det(
     reasons: list[str],
     benefit: str | None = None,
     vintage: str = t.SNAP_DATA_VINTAGE,
+    source_url: str = SOURCE_URL,
 ):
     return Determination(
         program="snap",
@@ -44,7 +42,7 @@ def _screen_det(
         estimated_benefit=benefit,
         apply_url=APPLY_URL,
         data_vintage=vintage,
-        source_url=SOURCE_URL,
+        source_url=source_url,
     )
 
 
@@ -59,7 +57,9 @@ def screen(
     year = year or t.SNAP_YEARS[t.SNAP_ACTIVE_YEAR]
 
     def _det(status, reasons, benefit=None):
-        return _screen_det(status, reasons, benefit, year.vintage)
+        return _screen_det(
+            status, reasons, benefit, year.vintage, year.source_url
+        )
 
     if profile.state in ("AK", "HI"):
         return _det(

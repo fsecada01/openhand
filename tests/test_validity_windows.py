@@ -43,6 +43,8 @@ def test_snap_table_selected_by_date():
     assert new.status == Status.likely_eligible
     assert "FY2026" in old.data_vintage
     assert "FY2027" in new.data_vintage
+    assert "cola2027" not in old.source_url
+    assert "cola2027" in new.source_url
 
 
 @pytest.mark.parametrize("as_of", [date(2024, 1, 1), date(2099, 1, 1)])

@@ -52,6 +52,7 @@ class SnapYear:
     """One fiscal year of SNAP COLA values for the 48 states + DC."""
 
     vintage: str
+    source_url: str
     gross_monthly: Mapping[int, int]
     gross_each_additional: int
     net_monthly: Mapping[int, int]
@@ -78,9 +79,20 @@ class SnapYear:
                 object.__setattr__(self, f.name, MappingProxyType(value))
 
 
+_SNAP_SOURCE = (
+    "https://www.fns.usda.gov/snap/"
+    "supplemental-nutrition-assistance-program-snap-"
+    "income-eligibility-standards"
+)
+_SNAP_FY2027_COLA_SOURCE = (
+    "https://www.usda.gov/sites/default/files/guidance-documents/"
+    "fna.snap-cola2027.pdf"
+)
+
 SNAP_YEARS = {
     "FY2026": SnapYear(
         vintage="FY2026 (2025-10-01 to 2026-09-30)",
+        source_url=_SNAP_SOURCE,
         gross_monthly={
             1: 1_696,
             2: 2_292,
@@ -123,6 +135,7 @@ SNAP_YEARS = {
     ),
     "FY2027": SnapYear(
         vintage="FY2027 (2026-10-01 to 2027-09-30)",
+        source_url=_SNAP_FY2027_COLA_SOURCE,
         gross_monthly={
             1: 1_729,
             2: 2_345,
@@ -281,11 +294,6 @@ class ThresholdSet:
         return self.effective_from <= as_of <= self.effective_through
 
 
-_SNAP_SOURCE = (
-    "https://www.fns.usda.gov/snap/"
-    "supplemental-nutrition-assistance-program-snap-"
-    "income-eligibility-standards"
-)
 _POVERTY_SOURCE = (
     "https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines"
 )
