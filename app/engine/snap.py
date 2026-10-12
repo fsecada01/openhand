@@ -46,15 +46,13 @@ def _screen_det(
     )
 
 
-def screen(
-    profile: HouseholdProfile, year: t.SnapYear | None = None
-) -> Determination:
-    """Screen against `year`'s tables (default: the active year).
+def screen(profile: HouseholdProfile, year: t.SnapYear) -> Determination:
+    """Screen against `year`'s tables.
 
-    The runner resolves the year from the as-of date and never calls
-    this for a date no window covers.
+    `year` is required: the runner resolves it from the as-of date and
+    never calls this for a date no validity window covers, so there is
+    no implicit "current" table to fall back on here.
     """
-    year = year or t.SNAP_YEARS[t.SNAP_ACTIVE_YEAR]
 
     def _det(status, reasons, benefit=None):
         return _screen_det(

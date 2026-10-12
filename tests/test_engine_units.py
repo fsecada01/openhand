@@ -18,6 +18,10 @@ def profile(**kw) -> HouseholdProfile:
     return HouseholdProfile(**base)
 
 
+def _screen_fy2027(profile: HouseholdProfile):
+    return snap.screen(profile, thresholds.SNAP_YEARS["FY2027"])
+
+
 # --- architecture guard ------------------------------------------------
 
 
@@ -54,12 +58,12 @@ def test_snap_limit_extends_past_8():
 
 
 def test_snap_gross_fail():
-    d = snap.screen(profile(monthly_gross_income=2_000))
+    d = _screen_fy2027(profile(monthly_gross_income=2_000))
     assert d.status == Status.likely_ineligible
 
 
 def test_snap_elderly_skips_gross_test():
-    d = snap.screen(
+    d = _screen_fy2027(
         profile(
             monthly_gross_income=1_400,
             monthly_earned_income=0,
@@ -116,7 +120,7 @@ def test_medicare_disabled_without_ssdi_points_to_pathway():
 
 
 def test_snap_shelter_deduction_uncapped_flips_elderly_household():
-    baseline = snap.screen(
+    baseline = _screen_fy2027(
         profile(
             monthly_gross_income=1_600,
             monthly_earned_income=0,
@@ -125,7 +129,7 @@ def test_snap_shelter_deduction_uncapped_flips_elderly_household():
     )
     assert baseline.status == Status.undetermined
 
-    with_shelter = snap.screen(
+    with_shelter = _screen_fy2027(
         profile(
             monthly_gross_income=1_600,
             monthly_earned_income=0,
@@ -138,7 +142,7 @@ def test_snap_shelter_deduction_uncapped_flips_elderly_household():
 
 
 def test_snap_shelter_deduction_capped_for_non_elderly():
-    d = snap.screen(
+    d = _screen_fy2027(
         profile(
             household_size=8,
             monthly_gross_income=5_867,
@@ -153,12 +157,12 @@ def test_snap_shelter_deduction_capped_for_non_elderly():
 
 
 def test_snap_dependent_care_deduction_flips_result():
-    baseline = snap.screen(
+    baseline = _screen_fy2027(
         profile(monthly_gross_income=1_600, monthly_earned_income=0)
     )
     assert baseline.status == Status.possibly_eligible
 
-    with_dependent_care = snap.screen(
+    with_dependent_care = _screen_fy2027(
         profile(
             monthly_gross_income=1_600,
             monthly_earned_income=0,
@@ -169,7 +173,7 @@ def test_snap_dependent_care_deduction_flips_result():
 
 
 def test_snap_medical_deduction_only_over_floor_for_elderly():
-    d = snap.screen(
+    d = _screen_fy2027(
         profile(
             monthly_gross_income=1_600,
             monthly_earned_income=0,
@@ -184,7 +188,7 @@ def test_snap_medical_deduction_only_over_floor_for_elderly():
 
 
 def test_snap_asset_test_fails_in_covered_state():
-    d = snap.screen(
+    d = _screen_fy2027(
         profile(
             state="KS",
             monthly_gross_income=800,
@@ -197,7 +201,7 @@ def test_snap_asset_test_fails_in_covered_state():
 
 
 def test_snap_asset_test_ignored_outside_covered_states():
-    d = snap.screen(
+    d = _screen_fy2027(
         profile(
             monthly_gross_income=800,
             monthly_earned_income=800,
@@ -211,7 +215,7 @@ def test_snap_asset_test_ignored_outside_covered_states():
 
 
 def test_snap_self_employed_sole_prop_uses_net_income():
-    d = snap.screen(
+    d = _screen_fy2027(
         profile(
             monthly_gross_income=5_000,
             is_self_employed=True,
@@ -228,7 +232,7 @@ def test_snap_self_employed_s_corp_uses_magi_style_income():
     # gathered later — SNAP should agree with Medicaid/EITC on the
     # same household's income, not use a different, unreconciled
     # figure just because it's an S-Corp.
-    d = snap.screen(
+    d = _screen_fy2027(
         profile(
             monthly_gross_income=10_000,
             is_self_employed=True,
@@ -241,7 +245,7 @@ def test_snap_self_employed_s_corp_uses_magi_style_income():
 
 
 def test_snap_self_employed_s_corp_k1_still_counts_toward_income_test():
-    d = snap.screen(
+    d = _screen_fy2027(
         profile(
             monthly_gross_income=1_000,
             is_self_employed=True,
