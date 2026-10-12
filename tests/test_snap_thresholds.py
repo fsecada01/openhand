@@ -92,7 +92,11 @@ def test_snap_source_is_fy2027_memo():
 
 def test_income_between_fy2026_and_fy2027_gross_limit_now_passes():
     # $1,700 > FY2026 1-person gross limit (1,696), <= FY2027 (1,729).
+    # Earned income: 1,700 - 217 standard - 340 (20%) = 1,143 net, under
+    # the FY2027 net limit of 1,330, so the result is a firm likely_eligible.
+    income = 1_700
+    assert income > t.SNAP_YEARS["FY2026"].gross_monthly[1]
     d = snap.screen(
-        profile(monthly_gross_income=1_700, monthly_earned_income=0)
+        profile(monthly_gross_income=income, monthly_earned_income=income)
     )
-    assert d.status != Status.likely_ineligible
+    assert d.status == Status.likely_eligible
