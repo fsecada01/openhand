@@ -105,3 +105,10 @@ def test_no_threshold_set_expires_within_45_days():
 @pytest.mark.parametrize("program", ["snap", "medicaid", "eitc"])
 def test_a_set_covers_today(program):
     assert t.resolve(program, date.today()) is not None
+
+
+def test_snap_windows_and_tables_must_match(monkeypatch):
+    t._check_snap_sets_match_years()
+    monkeypatch.setitem(t.SNAP_YEARS, "FY2099", t.SNAP_YEARS["FY2027"])
+    with pytest.raises(RuntimeError):
+        t._check_snap_sets_match_years()

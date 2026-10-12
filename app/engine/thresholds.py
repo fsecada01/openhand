@@ -346,6 +346,22 @@ THRESHOLD_SETS = (
 )
 
 
+def _check_snap_sets_match_years() -> None:
+    """Fail at import if a SNAP window and its table drift apart."""
+    keys = {ts.key for ts in THRESHOLD_SETS if ts.program == "snap"}
+    if keys != set(SNAP_YEARS):
+        raise RuntimeError(
+            "SNAP validity windows and SNAP_YEARS disagree: "
+            f"windows={sorted(keys)}, tables={sorted(SNAP_YEARS)}"
+        )
+    for ts in THRESHOLD_SETS:
+        if ts.program == "snap" and ts.vintage != SNAP_YEARS[ts.key].vintage:
+            raise RuntimeError(f"SNAP {ts.key} vintage mismatch")
+
+
+_check_snap_sets_match_years()
+
+
 def resolve(program: str, as_of: date) -> ThresholdSet | None:
     """The set for `program` whose window covers `as_of`, if any."""
     for ts in THRESHOLD_SETS:
