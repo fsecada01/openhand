@@ -64,21 +64,9 @@ def evaluate(
             medicaid.screen_pregnant(profile),
         ]
     else:
-        wanted = [("medicaid_adult", "Medicaid (adults)", True)]
-        wanted.append(
-            (
-                "medicaid_chip_children",
-                "Medicaid/CHIP (children)",
-                profile.num_children >= 1,
-            )
-        )
-        wanted.append(
-            ("medicaid_pregnant", "Medicaid (pregnancy)", profile.is_pregnant)
-        )
         results += [
             _stale(program, name, "medicaid", as_of, medicaid.APPLY_URL)
-            for program, name, applies in wanted
-            if applies
+            for program, name in medicaid.applicable_programs(profile)
         ]
 
     results.append(medicare.screen(profile))
