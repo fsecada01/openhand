@@ -28,12 +28,11 @@ SOURCE_URL = t.SNAP_YEARS[t.SNAP_ACTIVE_YEAR].source_url
 
 
 def _screen_det(
+    year: t.SnapYear,
     status: Status,
     reasons: list[str],
     benefit: str | None = None,
-    vintage: str = t.SNAP_DATA_VINTAGE,
-    source_url: str = SOURCE_URL,
-):
+) -> Determination:
     return Determination(
         program="snap",
         program_name=PROGRAM_NAME,
@@ -41,8 +40,8 @@ def _screen_det(
         reasons=reasons,
         estimated_benefit=benefit,
         apply_url=APPLY_URL,
-        data_vintage=vintage,
-        source_url=source_url,
+        data_vintage=year.vintage,
+        source_url=year.source_url,
     )
 
 
@@ -55,9 +54,7 @@ def screen(profile: HouseholdProfile, year: t.SnapYear) -> Determination:
     """
 
     def _det(status, reasons, benefit=None):
-        return _screen_det(
-            status, reasons, benefit, year.vintage, year.source_url
-        )
+        return _screen_det(year, status, reasons, benefit)
 
     if profile.state in ("AK", "HI"):
         return _det(
