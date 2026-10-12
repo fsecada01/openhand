@@ -1,8 +1,9 @@
 {
-  "_comment": "Hand-verified eval suite. Every engine change must keep these passing. Keys under 'expected' map program id -> status; a program id under 'absent' must not appear in the results.",
+  "_comment": "Hand-verified eval suite. Every engine change must keep these passing. Each case pins an 'as_of' date (ISO) selecting the threshold tables in force; existing cases are pinned to FY2026 dates. Keys under 'expected' map program id -> status; a program id under 'absent' must not appear in the results.",
   "cases": [
     {
       "name": "tx_single_parent_two_kids",
+      "as_of": "2026-06-01",
       "profile": {
         "state": "TX", "household_size": 3,
         "monthly_gross_income": 2000, "monthly_earned_income": 2000,
@@ -19,6 +20,7 @@
     },
     {
       "name": "ca_single_adult_low_wage",
+      "as_of": "2026-06-01",
       "profile": {
         "state": "CA", "household_size": 1,
         "monthly_gross_income": 1200, "monthly_earned_income": 1200,
@@ -33,6 +35,7 @@
     },
     {
       "name": "ny_family_above_limits",
+      "as_of": "2026-06-01",
       "profile": {
         "state": "NY", "household_size": 4,
         "monthly_gross_income": 6000, "monthly_earned_income": 6000,
@@ -49,6 +52,7 @@
     },
     {
       "name": "fl_elderly_couple_fixed_income",
+      "as_of": "2026-06-01",
       "profile": {
         "state": "FL", "household_size": 2,
         "monthly_gross_income": 2500, "monthly_earned_income": 0,
@@ -63,6 +67,7 @@
     },
     {
       "name": "ak_family_snap_table_gap",
+      "as_of": "2026-06-01",
       "profile": {
         "state": "AK", "household_size": 3,
         "monthly_gross_income": 2000
@@ -74,6 +79,7 @@
     },
     {
       "name": "oh_ssdi_18_months",
+      "as_of": "2026-06-01",
       "profile": {
         "state": "OH", "household_size": 1,
         "monthly_gross_income": 1400, "monthly_earned_income": 0,
@@ -89,6 +95,7 @@
     },
     {
       "name": "pa_ssdi_30_months",
+      "as_of": "2026-06-01",
       "profile": {
         "state": "PA", "household_size": 2,
         "monthly_gross_income": 1800, "monthly_earned_income": 0,
@@ -104,6 +111,7 @@
     },
     {
       "name": "mi_pregnant_moderate_income",
+      "as_of": "2026-06-01",
       "profile": {
         "state": "MI", "household_size": 2,
         "monthly_gross_income": 2600, "monthly_earned_income": 2600,
@@ -117,6 +125,7 @@
     },
     {
       "name": "oh_elderly_high_shelter_cost_flips_snap_eligible",
+      "as_of": "2026-06-01",
       "profile": {
         "state": "OH", "household_size": 1,
         "monthly_gross_income": 1600, "monthly_earned_income": 0,
@@ -130,6 +139,7 @@
     },
     {
       "name": "ks_asset_test_fails_despite_low_income",
+      "as_of": "2026-06-01",
       "profile": {
         "state": "KS", "household_size": 1,
         "monthly_gross_income": 800, "monthly_earned_income": 800,
@@ -141,6 +151,7 @@
     },
     {
       "name": "oh_self_employed_sole_prop_net_income",
+      "as_of": "2026-06-01",
       "profile": {
         "state": "OH", "household_size": 1,
         "monthly_gross_income": 5000, "is_self_employed": true,
@@ -154,6 +165,7 @@
     },
     {
       "name": "oh_self_employed_s_corp_wages_vs_distributions",
+      "as_of": "2026-06-01",
       "profile": {
         "state": "OH", "household_size": 1,
         "monthly_gross_income": 5500, "business_structure": "s_corp",
@@ -163,6 +175,20 @@
       "expected": {
         "medicaid_adult": "likely_ineligible",
         "eitc": "likely_ineligible"
+      }
+    },
+    {
+      "name": "oh_single_adult_date_outside_every_window",
+      "as_of": "2099-01-01",
+      "profile": {
+        "state": "OH", "household_size": 1,
+        "monthly_gross_income": 1200, "monthly_earned_income": 1200,
+        "adult_age": 28
+      },
+      "expected": {
+        "snap": "undetermined",
+        "medicaid_adult": "undetermined",
+        "eitc": "undetermined"
       }
     }
   ]
