@@ -5,9 +5,9 @@ elderly/disabled households) plus an estimated net income test (100%
 FPL) using the standard deduction, the 20% earned income deduction,
 and — when volunteered — the excess shelter, dependent-care, and
 elderly/disabled medical expense deductions. A federal asset test
-($3,000 general / $4,750 elderly-or-disabled) applies only in the
-handful of states confirmed to still enforce it (no Broad-Based
-Categorical Eligibility waiver); other states are treated as if the
+(general / elderly-or-disabled limits in app.engine.thresholds)
+applies only in the handful of states confirmed to still enforce it
+(no Broad-Based Categorical Eligibility waiver); other states are treated as if the
 test doesn't bind, since state-specific BBCE asset limits aren't
 sourced here. When shelter/dependent-care/medical facts aren't
 volunteered, a failed net test is reported as undetermined rather than
