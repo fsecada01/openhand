@@ -16,7 +16,9 @@ Sources:
   credits-deductions/individuals/earned-income-tax-credit
 """
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, fields
+from types import MappingProxyType
 
 # --- HHS poverty guidelines (annual dollars) -------------------------
 
@@ -49,18 +51,25 @@ class SnapYear:
     """One fiscal year of SNAP COLA values for the 48 states + DC."""
 
     vintage: str
-    gross_monthly: dict[int, int]
+    gross_monthly: Mapping[int, int]
     gross_each_additional: int
-    net_monthly: dict[int, int]
+    net_monthly: Mapping[int, int]
     net_each_additional: int
-    max_allotment: dict[int, int]
+    max_allotment: Mapping[int, int]
     allotment_each_additional: int
     minimum_allotment: int
-    standard_deduction: dict[int, int]
+    standard_deduction: Mapping[int, int]
     standard_deduction_6_plus: int
     shelter_deduction_cap: int
     asset_limit_general: int
     asset_limit_elderly_disabled: int
+
+    def __post_init__(self):
+        # frozen=True is shallow; make the tables read-only too.
+        for f in fields(self):
+            value = getattr(self, f.name)
+            if isinstance(value, dict):
+                object.__setattr__(self, f.name, MappingProxyType(value))
 
 
 SNAP_YEARS = {
@@ -192,7 +201,9 @@ SNAP_ASSET_LIMIT_ELDERLY_DISABLED = _SNAP.asset_limit_elderly_disabled
 SNAP_ASSET_TEST_STATES = {"KS", "MS", "MO", "SD", "TN", "UT", "WY"}
 
 
-def snap_limit(table: dict, each_additional: int, size: int) -> int:
+def snap_limit(
+    table: Mapping[int, int], each_additional: int, size: int
+) -> int:
     if size <= 8:
         return table[size]
     return table[8] + (size - 8) * each_additional
